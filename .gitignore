@@ -1,0 +1,42 @@
+# GPT-SoVITS large files (DO NOT commit)
+GPT-SoVITS/GPT_SoVITS/pretrained_models/
+GPT-SoVITS/tools/uvr5/uvr5_weights/
+GPT-SoVITS/tools/asr/models/
+GPT-SoVITS/output/
+GPT-SoVITS/logs/
+GPT-SoVITS/TEMP/
+
+# Training outputs & checkpoints
+*.pth
+*.ckpt
+*.pt
+*.bin
+*.safetensors
+
+# Audio files (large, keep locally)
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# Python
+__pycache__/
+*.pyc
+.eggs/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Conda / venv
+.conda/
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
