@@ -40,3 +40,5 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+GPT-SoVITS
+.gitmodules
