@@ -1,0 +1,12 @@
+# Example dialogue - Lesson 1: Meeting someone
+# Format: one line of Chinese per audio clip
+# Empty lines and lines starting with # are skipped
+
+你好！你叫什么名字？
+我叫小明。你呢？
+我叫小红。很高兴认识你。
+我也很高兴认识你。你是学生吗？
+是的，我是大学生。你呢？
+我也是。我学中文。
+你的中文说得很好！
+谢谢！我还在学习。

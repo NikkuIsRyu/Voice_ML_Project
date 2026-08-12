@@ -1,0 +1,15 @@
+# 你好 | nǐhǎo | hello
+# Format: Chinese text | Pinyin | English (optional)
+# Lines starting with # are comments
+# The script uses the Chinese text (first column) for audio generation
+
+你好 | nǐhǎo | hello
+谢谢 | xièxie | thank you
+再见 | zàijiàn | goodbye
+对不起 | duìbùqǐ | sorry
+没关系 | méiguānxi | it doesn't matter
+请问 | qǐngwèn | excuse me / may I ask
+多少钱 | duōshǎo qián | how much money
+我不知道 | wǒ bù zhīdào | I don't know
+可以 | kěyǐ | can / may
+不可以 | bù kěyǐ | cannot / may not
