@@ -91,7 +91,7 @@ def generate_single(text, output_path, ref_audio=None, ref_text=None,
 def parse_text_file(filepath):
     """Parse a text file into a list of (label, text) tuples.
 
-    Supports two formats:
+    Supports three formats:
         1. Simple: one Chinese text per line
            你好
            谢谢
@@ -101,9 +101,15 @@ def parse_text_file(filepath):
            你好|nǐhǎo|hello
            谢谢|xièxie|thanks
 
+        3. Dialogue: speaker-labeled lines (A:, B:, C: prefixes stripped)
+           A: 你好！你叫什么名字？
+           B: 我叫小明。
+
     Returns:
         List of (label, chinese_text) tuples
     """
+    import re
+
     entries = []
     with open(filepath, "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
@@ -115,8 +121,16 @@ def parse_text_file(filepath):
             chinese_text = parts[0].strip()
             label = f"{i:03d}"
 
-            # If labeled format, use first column as text
-            if len(parts) >= 2:
+            # Strip speaker labels like "A: ", "B: ", "C: "
+            speaker_match = re.match(r'^([A-Z]):\s*', chinese_text)
+            speaker = ""
+            if speaker_match:
+                speaker = speaker_match.group(1)
+                chinese_text = chinese_text[speaker_match.end():]
+                label = f"{i:03d}_{speaker}"
+
+            # If pipe-labeled format, use first column as text
+            elif len(parts) >= 2:
                 label = f"{i:03d}_{chinese_text}"
 
             entries.append((label, chinese_text))
