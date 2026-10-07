@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chinese Pronunciation Tutor — Antigravity</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-area">
+        <span class="logo-badge">汉语</span>
+        <div class="title-group">
+          <h1>Pronunciation Tutor</h1>
+          <p class="subtitle">AI-Powered Putonghua Speech & Tone Coach</p>
+        </div>
+      </div>
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="vocab">📖 Vocab Practice</button>
+        <button class="nav-tab" data-tab="dialogue">🎭 Dialogue Role-Play</button>
+        <button class="nav-tab" data-tab="stats">📊 SRS Dashboard</button>
+      </nav>
+    </header>
+
+    <main class="app-main">
+      <!-- 1. VOCABULARY MODE -->
+      <section id="tab-vocab" class="tab-content active">
+        <div class="control-bar">
+          <div class="selector-group">
+            <label for="lesson-select">Lesson:</label>
+            <select id="lesson-select" class="dropdown"></select>
+          </div>
+          <div class="selector-group">
+            <label for="word-select">Word:</label>
+            <select id="word-select" class="dropdown"></select>
+          </div>
+          <div class="nav-buttons">
+            <button id="prev-word-btn" class="btn btn-secondary">◀ Prev</button>
+            <button id="next-word-btn" class="btn btn-secondary">Next ▶</button>
+          </div>
+        </div>
+
+        <div class="practice-card">
+          <div class="hanzi-display" id="vocab-hanzi">你好</div>
+          <div class="pinyin-display" id="vocab-pinyin">nǐ hǎo</div>
+          <div class="translation-display" id="vocab-translation">Hello</div>
+
+          <div class="audio-controls">
+            <button id="play-native-btn" class="btn btn-audio">
+              <span class="icon">🔊</span> Listen Native
+            </button>
+            <button id="record-btn" class="btn btn-record">
+              <span class="icon">🎙️</span> <span id="record-text">Record Voice</span>
+            </button>
+          </div>
+          <div id="recording-indicator" class="recording-indicator hidden">
+            <span class="pulsing-dot"></span> Recording... Click again to finish
+          </div>
+        </div>
+
+        <!-- Evaluation Results & Pitch Contour Overlay -->
+        <div id="vocab-results" class="results-card hidden">
+          <div class="scores-grid">
+            <div class="score-box overall">
+              <span class="score-label">Overall Accuracy</span>
+              <span class="score-val" id="res-overall">0%</span>
+            </div>
+            <div class="score-box">
+              <span class="score-label">Tone Match</span>
+              <span class="score-val" id="res-tone">0%</span>
+            </div>
+            <div class="score-box">
+              <span class="score-label">Phoneme Match</span>
+              <span class="score-val" id="res-char">0%</span>
+            </div>
+            <div class="score-box">
+              <span class="score-label">Pitch Contour</span>
+              <span class="score-val" id="res-pitch">0%</span>
+            </div>
+          </div>
+
+          <div class="pitch-visualizer-section">
+            <h3>F0 Pitch Contour Overlay (Praat / YIN Analysis)</h3>
+            <p class="section-desc">Comparing your melodic pitch trajectory against the native female speaker.</p>
+            <div class="canvas-wrapper">
+              <canvas id="pitch-canvas" width="600" height="220"></canvas>
+            </div>
+            <div class="canvas-legend">
+              <span class="legend-item"><span class="legend-color native-gold"></span> Native Speaker (TTS)</span>
+              <span class="legend-item"><span class="legend-color user-cyan"></span> Your Voice (Microphone)</span>
+            </div>
+          </div>
+
+          <div class="diagnostics-section">
+            <h3>Pronunciation Diagnostics & Tone Coach</h3>
+            <div id="diagnostics-list" class="diagnostics-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. DIALOGUE ROLE-PLAY MODE -->
+      <section id="tab-dialogue" class="tab-content">
+        <div class="control-bar">
+          <div class="selector-group">
+            <label for="dialogue-select">Scenario:</label>
+            <select id="dialogue-select" class="dropdown"></select>
+          </div>
+          <div class="selector-group">
+            <label for="role-select">Your Role:</label>
+            <select id="role-select" class="dropdown"></select>
+          </div>
+          <button id="start-dialogue-btn" class="btn btn-primary">Start Conversation</button>
+        </div>
+
+        <div class="dialogue-box">
+          <div id="dialogue-history" class="dialogue-history">
+            <p class="empty-state">Select a scenario and click Start to begin turn-by-turn role-play.</p>
+          </div>
+
+          <div id="dialogue-turn-controls" class="dialogue-turn-controls hidden">
+            <div class="turn-prompt">
+              <span class="prompt-speaker" id="turn-speaker">You:</span>
+              <span class="prompt-text" id="turn-text">...</span>
+            </div>
+            <div class="turn-actions">
+              <button id="dialogue-record-btn" class="btn btn-record">
+                <span class="icon">🎙️</span> Speak This Line
+              </button>
+              <button id="dialogue-listen-ref-btn" class="btn btn-audio">
+                <span class="icon">🔊</span> Listen Reference
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. SRS DASHBOARD -->
+      <section id="tab-stats" class="tab-content">
+        <div class="stats-overview">
+          <div class="stat-card">
+            <span class="stat-num" id="stat-total">0</span>
+            <span class="stat-lbl">Total Words</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num stat-green" id="stat-mastered">0</span>
+            <span class="stat-lbl">Mastered (SRS)</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num stat-orange" id="stat-due">0</span>
+            <span class="stat-lbl">Due for Review</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="stat-tone-acc">0%</span>
+            <span class="stat-lbl">Mean Tone Accuracy</span>
+          </div>
+        </div>
+
+        <div class="recent-records-section">
+          <h3>Recent Practice Sessions</h3>
+          <table class="records-table">
+            <thead>
+              <tr>
+                <th>Target</th>
+                <th>Pinyin</th>
+                <th>What You Said</th>
+                <th>Tone Match</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="recent-records-body">
+              <tr><td colspan="5" style="text-align:center;">No practice records yet. Record some words!</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <audio id="audio-player"></audio>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GPT-SoVITS Voice Quality Blind A/B Evaluation</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --primary: #38bdf8;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-a: #10b981;
+      --accent-b: #8b5cf6;
+      --warn: #f59e0b;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 900px;
+      width: 100%;
+    }
+    header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 0.5rem 0;
+      color: var(--primary);
+    }
+    .score-banner {
+      display: flex;
+      justify-content: space-around;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+    }
+    .score-item {
+      text-align: center;
+    }
+    .score-number {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .test-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .text-display {
+      font-size: 1.8rem;
+      font-weight: 600;
+      text-align: center;
+      margin: 1.5rem 0;
+      letter-spacing: 0.05em;
+    }
+    .audio-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
+    .player-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem;
+      text-align: center;
+    }
+    audio {
+      width: 100%;
+      margin-top: 0.8rem;
+    }
+    .btn-row {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    button {
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-a { background: var(--accent-a); color: #000; }
+    .btn-b { background: var(--accent-b); color: #fff; }
+    .btn-tie { background: var(--border); color: var(--text); }
+    .btn-reveal { background: var(--warn); color: #000; }
+    button:hover { transform: translateY(-2px); opacity: 0.9; }
+    .reveal-box {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px dashed var(--warn);
+      border-radius: 8px;
+      text-align: center;
+      display: none;
+    }
+    .nav-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>GPT-SoVITS Blind A/B Listening Test</h1>
+      <p style="color: var(--text-muted)">Compare synthesized Chinese voice naturalness without confirmation bias</p>
+    </header>
+
+    <div class="score-banner">
+      <div class="score-item">
+        <div class="score-number" id="v1Wins">0</div>
+        <div style="color: var(--text-muted)">Model 1 (v1 A4)</div>
+      </div>
+      <div class="score-item">
+        <div class="score-number" id="v2Wins">0</div>
+        <div style="color: var(--text-muted)">Model 2 (v2ProPlus)</div>
+      </div>
+      <div class="score-item">
+        <div class="score-number" id="tieWins">0</div>
+        <div style="color: var(--text-muted)">Ties / Equal</div>
+      </div>
+    </div>
+
+    <div class="test-card">
+      <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+        <span id="itemMeta">Item 1 of 80</span>
+        <span id="itemCategory">Category: Vocab</span>
+      </div>
+
+      <div class="text-display" id="itemChinese">您好</div>
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.95rem;" id="itemNotes">3rd-tone sandhi</div>
+
+      <div class="audio-grid">
+        <div class="player-box">
+          <h3 style="margin: 0; color: var(--accent-a)">Clip Option A</h3>
+          <audio id="audioA" controls></audio>
+        </div>
+        <div class="player-box">
+          <h3 style="margin: 0; color: var(--accent-b)">Clip Option B</h3>
+          <audio id="audioB" controls></audio>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-a" onclick="vote('A')">Prefer Option A</button>
+        <button class="btn-tie" onclick="vote('Tie')">Both Equal</button>
+        <button class="btn-b" onclick="vote('B')">Prefer Option B</button>
+        <button class="btn-reveal" onclick="toggleReveal()">Reveal Identities</button>
+      </div>
+
+      <div class="reveal-box" id="revealBox">
+        <strong>Identities for this item:</strong>
+        <p id="revealText" style="margin: 0.5rem 0 0 0;"></p>
+      </div>
+
+      <div class="nav-row">
+        <button class="btn-tie" onclick="prevItem()">← Previous</button>
+        <button class="btn-tie" onclick="nextItem()">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Placeholder dataset matching eval/testset.txt
+    const items = [
+      { id: "V01", cat: "Vocab", text: "您好", notes: "3rd-tone sandhi: níhǎo" },
+      { id: "V02", cat: "Vocab", text: "很好", notes: "3rd-tone sandhi: hénhǎo" },
+      { id: "V04", cat: "Vocab", text: "一个", notes: "yi sandhi: yígè" },
+      { id: "V06", cat: "Vocab", text: "不是", notes: "bu sandhi: búshì" },
+      { id: "V11", cat: "Vocab", text: "妈", notes: "Tone 1" },
+      { id: "V12", cat: "Vocab", text: "麻", notes: "Tone 2" },
+      { id: "V13", cat: "Vocab", text: "马", notes: "Tone 3" },
+      { id: "V14", cat: "Vocab", text: "骂", notes: "Tone 4" },
+      { id: "D01", cat: "Dialogue", text: "您好，请问您是王老师吗？", notes: "Greeting polite" },
+      { id: "D04", cat: "Dialogue", text: "认识你很高兴，张华！你的汉语说得很好。", notes: "Sandhi & phrasing" },
+      { id: "L03", cat: "Complex", text: "标贝开源普通话语音数据集包含了一万句高质量的标准普通话录音。", notes: "Domain terminology" }
+    ];
+
+    let currentIndex = 0;
+    let scores = { v1: 0, v2: 0, ties: 0 };
+    let mapping = {}; // True identity for current item A/B
+
+    function loadItem(idx) {
+      if (idx < 0 || idx >= items.length) return;
+      currentIndex = idx;
+      const item = items[idx];
+      document.getElementById('itemMeta').innerText = `Item ${idx + 1} of ${items.length} (${item.id})`;
+      document.getElementById('itemCategory').innerText = `Category: ${item.cat}`;
+      document.getElementById('itemChinese').innerText = item.text;
+      document.getElementById('itemNotes').innerText = item.notes;
+
+      // Randomize whether Option A is Model 1 (v1) or Model 2 (v2)
+      const isA_v1 = Math.random() < 0.5;
+      mapping = {
+        A: isA_v1 ? "Model 1 (v1 A4)" : "Model 2 (v2ProPlus)",
+        B: isA_v1 ? "Model 2 (v2ProPlus)" : "Model 1 (v1 A4)"
+      };
+
+      document.getElementById('audioA').src = `v1_baseline/audio/${item.id}_${encodeURIComponent(item.text.slice(0,6))}.wav`;
+      document.getElementById('audioB').src = `v2_proplus/audio/${item.id}_${encodeURIComponent(item.text.slice(0,6))}.wav`;
+      document.getElementById('revealBox').style.display = 'none';
+    }
+
+    function vote(choice) {
+      if (choice === 'Tie') scores.ties++;
+      else {
+        const winner = mapping[choice];
+        if (winner.includes('v1')) scores.v1++;
+        else scores.v2++;
+      }
+      document.getElementById('v1Wins').innerText = scores.v1;
+      document.getElementById('v2Wins').innerText = scores.v2;
+      document.getElementById('tieWins').innerText = scores.ties;
+      nextItem();
+    }
+
+    function toggleReveal() {
+      const box = document.getElementById('revealBox');
+      const text = document.getElementById('revealText');
+      text.innerText = `Option A is ${mapping.A} | Option B is ${mapping.B}`;
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function nextItem() {
+      if (currentIndex < items.length - 1) loadItem(currentIndex + 1);
+    }
+    function prevItem() {
+      if (currentIndex > 0) loadItem(currentIndex - 1);
+    }
+
+    window.onload = () => loadItem(0);
+  </script>
+</body>
+</html>

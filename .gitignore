@@ -15,6 +15,11 @@ GPT-SoVITS/
 *.ogg
 output/
 output_v2/
+tutor/uploads/
+*.db
+
+# Local tools
+tools_7z/
 
 
 # Python

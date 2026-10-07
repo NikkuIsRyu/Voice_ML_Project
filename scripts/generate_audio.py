@@ -35,8 +35,8 @@ if sys.platform == "win32":
 
 # === Configuration ===
 API_URL = "http://127.0.0.1:9880"
-DEFAULT_REF_AUDIO = "data/reference_audio/A4_137.wav"
-DEFAULT_REF_TEXT = "不弃雅不避俗化俗为雅化雅为俗俗不伤雅雅俗共赏"
+DEFAULT_REF_AUDIO = "data/train_v2/csmsc/csmsc_ref.wav"
+DEFAULT_REF_TEXT = "宝马配挂跛骡鞍，貂蝉怨枕，董翁榻。"
 DEFAULT_LANG = "zh"
 
 
@@ -50,7 +50,7 @@ def check_api_running():
 
 
 def generate_single(text, output_path, ref_audio=None, ref_text=None,
-                    text_lang="zh", speed=1.0):
+                    text_lang="zh", speed=1.0, top_k=10, temperature=0.8):
     """Generate audio for a single text string.
 
     Args:
@@ -60,6 +60,8 @@ def generate_single(text, output_path, ref_audio=None, ref_text=None,
         ref_text: Transcript of the reference audio
         text_lang: Language code ('zh', 'en', 'ja')
         speed: Speech speed multiplier (0.5-2.0)
+        top_k: Sampling top_k (tuned: 10)
+        temperature: Sampling temperature (tuned: 0.8)
 
     Returns:
         True if successful, False otherwise
@@ -67,13 +69,27 @@ def generate_single(text, output_path, ref_audio=None, ref_text=None,
     ref_audio = ref_audio or DEFAULT_REF_AUDIO
     ref_text = ref_text or DEFAULT_REF_TEXT
 
+    # Tuned short-word strategy: Pad <=2 char words with period to avoid truncations/hallucinations
+    synth_text = text
+    clean_chars = re.sub(r"[^\u4e00-\u9fff0-9a-zA-Z]", "", text)
+    if len(clean_chars) <= 2 and not any(p in text for p in "，。？！"):
+        synth_text = text + "。"
+
     payload = {
-        "text": text,
+        "text": synth_text,
         "text_lang": text_lang,
         "ref_audio_path": os.path.abspath(ref_audio),
         "prompt_text": ref_text,
         "prompt_lang": "zh",
+        "top_k": top_k,
+        "top_p": 1.0,
+        "temperature": temperature,
         "speed_factor": speed,
+        "text_split_method": "cut5" if len(clean_chars) > 15 else "cut0",
+        "batch_size": 1,
+        "seed": 42,
+        "split_bucket": True,
+        "parallel_infer": True
     }
 
     try:
@@ -188,7 +204,7 @@ def process_file(input_path, output_dir, ref_audio=None, ref_text=None,
             print("FAILED")
             failed += 1
 
-        time.sleep(0.5)
+        time.sleep(0.05)
 
     print(f"\nResults: {success} success, {failed} failed, {len(entries)} total")
     return success, failed
