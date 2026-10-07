@@ -97,12 +97,7 @@ We use **fine-tuning** (10 min of speaker A4 from THCHS-30) for maximum quality.
 ## 🔧 Tools to Explore (Priority 3)
 
 ### 1. Listen to the Reference Audio
-Play some of the files in `data/reference_audio/` to hear what speaker A4 sounds like. You can use any audio player:
-```bash
-# Play a file (on Ubuntu)
-aplay data/reference_audio/A4_0.wav
-# Or use VLC, Audacity, etc.
-```
+Play some of the files in `data/reference_audio/` to hear what speaker A4 sounds like.
 
 ### 2. Read the Transcript List
 Look at `data/reference_audio/transcript.list` to see the text that corresponds to each audio clip. This is what the model uses to learn the connection between text and speech.
@@ -160,12 +155,37 @@ If you want to go deeper, these resources are excellent:
 
 ---
 
-## ✅ Checklist: What to Do Before Your PC Session
+## 🚀 PC Quick-Start & Daily Usage
 
-- [ ] **Type out vocab** from your exercise book into `data/vocab/lessonXX.txt` files
-- [ ] **Type out dialogues** from your exercise book into `data/dialogues/lessonXX.txt` files
-- [ ] **Listen** to a few reference audio clips to hear speaker A4
-- [ ] **Read** the GPT-SoVITS GitHub README
-- [ ] **Skim** the concepts section above
-- [ ] **Git push** your text files so they sync to your PC
-- [ ] **Run** `scripts/setup_pc.sh` on your PC (one-time setup)
+Now that your PC environment and models are fully configured:
+
+### 1. Launch the Interactive WebUI
+Double-click `run_webui.bat` in the project root, or run:
+```powershell
+.\run_webui.bat
+```
+Then open your browser to [http://127.0.0.1:9874](http://127.0.0.1:9874).
+
+### 2. Launch the TTS API Server
+Double-click `run_api.bat` in the project root, or run:
+```powershell
+.\run_api.bat
+```
+The server will start on [http://127.0.0.1:9880](http://127.0.0.1:9880) with your fine-tuned `speaker_A4` weights pre-loaded.
+
+### 3. Generate Audio from Text Files
+With `run_api.bat` running:
+```powershell
+# Generate audio for a single file:
+& "D:\miniconda3\envs\GPTSoVits\python.exe" scripts\generate_audio.py -i data\dialogues\Dialogue2_1.txt -o output\dialogues\Dialogue2_1
+
+# Generate audio for an entire folder:
+& "D:\miniconda3\envs\GPTSoVits\python.exe" scripts\generate_audio.py -i data\dialogues -o output\dialogues
+& "D:\miniconda3\envs\GPTSoVits\python.exe" scripts\generate_audio.py -i data\vocab -o output\vocab
+```
+
+### 4. Fine-Tuned Model Weights Location
+- SoVITS acoustic weights: `GPT-SoVITS\SoVITS_weights_v2\speaker_A4_e8_s480.pth`
+- GPT semantic weights: `GPT-SoVITS\GPT_weights_v2\speaker_A4-e15.ckpt`
+- Generated audio outputs: `output\dialogues\` and `output\vocab\`
+

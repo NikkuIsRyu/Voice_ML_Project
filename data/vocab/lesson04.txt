@@ -1,0 +1,68 @@
+# Lektion 4: Uhrzeit und Datum
+几点 | jǐ diǎn | Wieviel Uhr?
+点 | diǎn | Uhr (Uhrzeit)
+半 | bàn | halb, Hälfte
+知道 | zhīdào | wissen, kennen
+德国 | Déguó | Deutschland
+下午 | xiàwǔ | Nachmittag, nachmittags
+早上 | zǎoshang | Morgen, morgens
+夏季时间 | xiàjì shíjiān | Sommerzeit
+时间 | shíjiān | Zeit, Zeitdauer
+对 | duì | richtig, genau
+应该 | yīnggāi | sollte, müsste
+今天 | jīntiān | heute
+几号 | jǐ hào | der Wievielte?
+号 | hào | Tag (Datum)
+星期几 | xīngqī jǐ | welcher Wochentag?
+星期 | xīngqī | Woche, Wochentag
+昨天 | zuótiān | gestern
+妹妹 | mèimei | jüngere Schwester
+生日 | shēngrì | Geburtstag
+星期天 | xīngqītiān | Sonntag
+不对 | bú duì | falsch, stimmt nicht
+看 | kàn | sehen, schauen, lesen
+去年 | qùnián | letztes Jahr
+月历 | yuèlì | Monatskalender
+是吗 | shì ma | tatsächlich? wirklich?
+报纸 | bàozhǐ | Zeitung
+年 | nián | Jahr
+月 | yuè | Monat
+日 | rì | Datum, Tag (schriftsprachlich)
+对不起 | duìbuqǐ | Entschuldigung!
+没关系 | méi guānxi | Macht nichts! Keine Ursache!
+祝你生日快乐 | zhù nǐ shēngrì kuàilè | Herzlichen Glückwunsch zum Geburtstag!
+上午 | shàngwǔ | Vormittag
+中午 | zhōngwǔ | Mittag
+晚上 | wǎnshang | Abend, abends
+夜里 | yèlǐ | nachts
+明天 | míngtiān | morgen
+今年 | jīnnián | dieses Jahr
+明年 | míngnián | nächstes Jahr
+上个星期 | shàng ge xīngqī | letzte Woche
+这个星期 | zhè ge xīngqī | diese Woche
+下个星期 | xià ge xīngqī | nächste Woche
+上个月 | shàng ge yuè | letzten Monat
+这个月 | zhè ge yuè | diesen Monat
+下个月 | xià ge yuè | nächsten Monat
+上个周末 | shàng ge zhōumò | letztes Wochenende
+这个周末 | zhè ge zhōumò | dieses Wochenende
+下个周末 | xià ge zhōumò | nächstes Wochenende
+周末好 | zhōumò hǎo | Schönes Wochenende!
+星期一 | xīngqīyī | Montag
+星期二 | xīngqī'èr | Dienstag
+星期三 | xīngqīsān | Mittwoch
+星期四 | xīngqīsì | Donnerstag
+星期五 | xīngqīwǔ | Freitag
+星期六 | xīngqīliù | Samstag
+星期日 | xīngqīrì | Sonntag
+一月 | yī yuè | Januar
+二月 | èr yuè | Februar
+日历 | rìlì | Tageskalender
+年历 | niánlì | Jahreskalender
+杂志 | zázhì | Zeitschrift, Magazin
+画报 | huàbào | Illustrierte
+人民日报 | Rénmín Rìbào | Volkszeitung
+中国日报 | Zhōngguó Rìbào | China Daily
+经济日报 | Jīngjì Rìbào | Wirtschaftszeitung
+经济新闻 | Jīngjì Xīnwén | Wirtschaftsnachrichten
+看报 | kàn bào | Zeitung lesen

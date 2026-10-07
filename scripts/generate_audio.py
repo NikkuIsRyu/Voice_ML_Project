@@ -18,19 +18,25 @@ Usage:
 """
 
 import argparse
+import io
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
 
 import requests
 
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 
 # === Configuration ===
 API_URL = "http://127.0.0.1:9880"
-DEFAULT_REF_AUDIO = "data/reference_audio/A4_0.wav"
-DEFAULT_REF_TEXT = "绿是阳春烟景大块文章的底色四月的林峦更是绿得鲜活秀媚诗意盎然"
+DEFAULT_REF_AUDIO = "data/reference_audio/A4_137.wav"
+DEFAULT_REF_TEXT = "不弃雅不避俗化俗为雅化雅为俗俗不伤雅雅俗共赏"
 DEFAULT_LANG = "zh"
 
 
@@ -91,7 +97,7 @@ def generate_single(text, output_path, ref_audio=None, ref_text=None,
 def parse_text_file(filepath):
     """Parse a text file into a list of (label, text) tuples.
 
-    Supports two formats:
+    Supports three formats:
         1. Simple: one Chinese text per line
            你好
            谢谢
@@ -100,6 +106,10 @@ def parse_text_file(filepath):
         2. Labeled: label|text per line (for vocab with pinyin)
            你好|nǐhǎo|hello
            谢谢|xièxie|thanks
+
+        3. Dialogue: speaker-labeled lines (A:, B:, C: prefixes stripped)
+           A: 你好！你叫什么名字？
+           B: 我叫小明。
 
     Returns:
         List of (label, chinese_text) tuples
@@ -115,8 +125,15 @@ def parse_text_file(filepath):
             chinese_text = parts[0].strip()
             label = f"{i:03d}"
 
+            # Strip speaker labels like "A: ", "B: ", "C: "
+            speaker_match = re.match(r"^([A-Z]):\s*", chinese_text)
+            if speaker_match:
+                speaker = speaker_match.group(1)
+                chinese_text = chinese_text[speaker_match.end():]
+                label = f"{i:03d}_{speaker}"
+
             # If labeled format, use first column as text
-            if len(parts) >= 2:
+            elif len(parts) >= 2:
                 label = f"{i:03d}_{chinese_text}"
 
             entries.append((label, chinese_text))
@@ -157,7 +174,7 @@ def process_file(input_path, output_dir, ref_audio=None, ref_text=None,
             continue
 
         if dry_run:
-            print(f"  [{i+1}/{len(entries)}] DRY RUN: {text[:30]} → {output_path}")
+            print(f"  [{i+1}/{len(entries)}] DRY RUN: {text[:30]} -> {output_path}")
             continue
 
         print(f"  [{i+1}/{len(entries)}] Generating: {text[:30]}...", end=" ", flush=True)
@@ -168,10 +185,9 @@ def process_file(input_path, output_dir, ref_audio=None, ref_text=None,
             print(f"OK ({elapsed:.1f}s)")
             success += 1
         else:
-            print(f"FAILED")
+            print("FAILED")
             failed += 1
 
-        # Small delay between requests to avoid overloading
         time.sleep(0.5)
 
     print(f"\nResults: {success} success, {failed} failed, {len(entries)} total")
@@ -200,6 +216,8 @@ def process_directory(input_dir, output_dir, **kwargs):
 
 
 def main():
+    global API_URL
+
     parser = argparse.ArgumentParser(
         description="Generate Chinese TTS audio from text files using GPT-SoVITS",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -216,11 +234,6 @@ Examples:
 
   # Dry run (preview without generating)
   python scripts/generate_audio.py --input data/vocab/lesson01.txt --output output/vocab/lesson01 --dry-run
-
-  # Use a different reference voice
-  python scripts/generate_audio.py --input data/vocab/lesson01.txt --output output/vocab/lesson01 \\
-      --ref-audio data/reference_audio/A4_10.wav \\
-      --ref-text "炮眼打好了炸药怎么装"
         """,
     )
 
@@ -241,17 +254,15 @@ Examples:
 
     args = parser.parse_args()
 
-    global API_URL
     API_URL = args.api_url
 
-    # Check API
     if not args.dry_run:
         if not check_api_running():
             print(f"ERROR: GPT-SoVITS API is not running at {API_URL}")
-            print(f"Start it with:")
-            print(f"  cd GPT-SoVITS")
-            print(f"  conda activate GPTSoVits")
-            print(f"  python api_v2.py -a 127.0.0.1 -p 9880 -c GPT_SoVITS/configs/tts_infer.yaml")
+            print("Start it with:")
+            print("  cd GPT-SoVITS")
+            print("  conda activate GPTSoVits")
+            print("  python api_v2.py -a 127.0.0.1 -p 9880 -c GPT_SoVITS/configs/tts_infer.yaml")
             sys.exit(1)
 
     input_path = args.input

@@ -1,10 +1,5 @@
-# GPT-SoVITS large files (DO NOT commit)
-GPT-SoVITS/GPT_SoVITS/pretrained_models/
-GPT-SoVITS/tools/uvr5/uvr5_weights/
-GPT-SoVITS/tools/asr/models/
-GPT-SoVITS/output/
-GPT-SoVITS/logs/
-GPT-SoVITS/TEMP/
+# GPT-SoVITS upstream repo (separate git clone, large files)
+GPT-SoVITS/
 
 # Training outputs & checkpoints
 *.pth
@@ -18,6 +13,9 @@ GPT-SoVITS/TEMP/
 *.mp3
 *.flac
 *.ogg
+output/
+output_v2/
+
 
 # Python
 __pycache__/
@@ -40,5 +38,3 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
-GPT-SoVITS
-.gitmodules
