@@ -13,6 +13,7 @@ GPT-SoVITS/
 *.mp3
 *.flac
 *.ogg
+!tests/fixtures/*
 output/
 output_v2/
 tutor/uploads/
@@ -43,3 +44,9 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Secrets & Environment
+.env
+*.env
+logs/
+tutor/uploads/talk/

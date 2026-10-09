@@ -21,6 +21,7 @@
       </div>
       <nav class="nav-tabs">
         <button class="nav-tab active" data-tab="vocab">📖 Vocab Practice</button>
+        <button class="nav-tab" data-tab="talk">🎙️ Live AI Teacher</button>
         <button class="nav-tab" data-tab="dialogue">🎭 Dialogue Role-Play</button>
         <button class="nav-tab" data-tab="stats">📊 SRS Dashboard</button>
       </nav>
@@ -31,6 +32,13 @@
       <section id="tab-vocab" class="tab-content active">
         <div class="control-bar">
           <div class="selector-group">
+            <label for="practice-mode-select">Queue:</label>
+            <select id="practice-mode-select" class="dropdown">
+              <option value="lesson">Lesson Order</option>
+              <option value="due">Due Today (SRS)</option>
+            </select>
+          </div>
+          <div class="selector-group" id="lesson-group">
             <label for="lesson-select">Lesson:</label>
             <select id="lesson-select" class="dropdown"></select>
           </div>
@@ -39,12 +47,19 @@
             <select id="word-select" class="dropdown"></select>
           </div>
           <div class="nav-buttons">
-            <button id="prev-word-btn" class="btn btn-secondary">◀ Prev</button>
-            <button id="next-word-btn" class="btn btn-secondary">Next ▶</button>
+            <button id="prev-word-btn" class="btn btn-secondary" title="Shortcut: Left arrow">◀ Prev</button>
+            <button id="next-word-btn" class="btn btn-secondary" title="Shortcut: Enter or Right arrow">Next ▶</button>
           </div>
         </div>
 
+        <div id="vocab-error-banner" class="error-banner hidden">
+          <span class="error-icon">⚠️</span>
+          <span id="vocab-error-text">An error occurred</span>
+          <button id="vocab-error-close" class="error-close-btn" title="Dismiss">&times;</button>
+        </div>
+
         <div class="practice-card">
+          <div id="vocab-syllables-display" class="syllables-display hidden"></div>
           <div class="hanzi-display" id="vocab-hanzi">你好</div>
           <div class="pinyin-display" id="vocab-pinyin">nǐ hǎo</div>
           <div class="translation-display" id="vocab-translation">Hello</div>
@@ -53,13 +68,25 @@
             <button id="play-native-btn" class="btn btn-audio">
               <span class="icon">🔊</span> Listen Native
             </button>
-            <button id="record-btn" class="btn btn-record">
+            <button id="play-slow-btn" class="btn btn-secondary" title="Listen at 0.75x speed">
+              <span class="icon">🐢</span> 0.75×
+            </button>
+            <button id="play-user-btn" class="btn btn-secondary hidden" title="Hear your recording">
+              <span class="icon">🎧</span> Hear Me
+            </button>
+            <button id="record-btn" class="btn btn-record" title="Shortcut: Spacebar">
               <span class="icon">🎙️</span> <span id="record-text">Record Voice</span>
             </button>
           </div>
           <div id="recording-indicator" class="recording-indicator hidden">
-            <span class="pulsing-dot"></span> Recording... Click again to finish
+            <span class="pulsing-dot"></span> Recording... Click again or press Space to finish
           </div>
+        </div>
+
+        <!-- Scoring Spinner Loader -->
+        <div id="vocab-scoring-loader" class="scoring-loader hidden">
+          <div class="spinner"></div>
+          <span>Analyzing pronunciation & tones...</span>
         </div>
 
         <!-- Evaluation Results & Pitch Contour Overlay -->
@@ -102,7 +129,64 @@
         </div>
       </section>
 
-      <!-- 2. DIALOGUE ROLE-PLAY MODE -->
+      <!-- 2. LIVE AI TEACHER MODE -->
+      <section id="tab-talk" class="tab-content">
+        <div class="control-bar">
+          <div class="selector-group">
+            <label for="talk-scenario-select">Szenario:</label>
+            <select id="talk-scenario-select" class="dropdown">
+              <option value="free_chat">Freies Gespräch (Alltag)</option>
+              <option value="restaurant">Im Restaurant bestellen</option>
+              <option value="hotel">Hotel & Reisen</option>
+              <option value="directions">Nach dem Weg fragen</option>
+              <option value="business">Büro & Geschäftstreffen</option>
+            </select>
+          </div>
+          <div class="selector-group">
+            <label for="talk-strictness-select">Korrektur:</label>
+            <select id="talk-strictness-select" class="dropdown">
+              <option value="normal">Normal (max 2/Runde)</option>
+              <option value="gentle">Sanft (max 1/Runde)</option>
+              <option value="strict">Strikt (alle Töne)</option>
+            </select>
+          </div>
+          <div class="talk-status-badge" id="talk-ws-status">
+            <span class="status-dot disconnected" id="talk-ws-dot"></span>
+            <span id="talk-ws-text">Getrennt</span>
+          </div>
+          <div class="nav-buttons">
+            <button id="talk-start-btn" class="btn btn-primary">Sitzung starten</button>
+            <button id="talk-end-btn" class="btn btn-secondary hidden">Beenden</button>
+          </div>
+        </div>
+
+        <div class="talk-container">
+          <div id="talk-transcript" class="talk-transcript">
+            <div class="teacher-welcome-card">
+              <h3>👋 Willkommen bei deiner persönlichen KI-Chinesischlehrerin!</h3>
+              <p>Unterhalte dich flüssig auf Chinesisch. Die Lehrerin antwortet dir mit deiner eigenen feingetunten Stimme und erklärt dir Grammatik und Töne auf <strong>Deutsch</strong>.</p>
+              <p class="text-muted" style="margin-top:8px; font-size:13px;">Klicke oben auf "Sitzung starten" und halte die Leertaste oder drücke auf das Mikrofon, um zu sprechen.</p>
+            </div>
+          </div>
+
+          <div class="talk-controls-area">
+            <div class="mic-orb-wrapper">
+              <div id="talk-mic-orb" class="mic-orb state-idle" title="Klicken zum Sprechen">
+                <span class="orb-icon">🎙️</span>
+                <div class="orb-ripple"></div>
+              </div>
+              <div id="talk-mic-status" class="mic-status-label">Bereit zum Sprechen</div>
+            </div>
+
+            <div class="talk-input-bar">
+              <input type="text" id="talk-text-input" class="talk-input" placeholder="Schreibe auf Chinesisch oder Pinyin (Fallback)..." />
+              <button id="talk-send-text-btn" class="btn btn-secondary">Senden</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. DIALOGUE ROLE-PLAY MODE -->
       <section id="tab-dialogue" class="tab-content">
         <div class="control-bar">
           <div class="selector-group">
@@ -128,7 +212,10 @@
             </div>
             <div class="turn-actions">
               <button id="dialogue-record-btn" class="btn btn-record">
-                <span class="icon">🎙️</span> Speak This Line
+                <span class="icon">🎙️</span> <span id="dialogue-record-text">Speak This Line</span>
+              </button>
+              <button id="dialogue-try-again-btn" class="btn btn-secondary hidden">
+                <span class="icon">🔄</span> Try Again
               </button>
               <button id="dialogue-listen-ref-btn" class="btn btn-audio">
                 <span class="icon">🔊</span> Listen Reference
@@ -159,6 +246,26 @@
           </div>
         </div>
 
+        <!-- Pronunciation Weakness Profile -->
+        <div class="weakness-section">
+          <h3>🎯 Pronunciation & Tone Weakness Profile</h3>
+          <p class="section-desc">Identified persistent tone confusions and problem syllables from your speech history.</p>
+          <div class="weakness-grid">
+            <div class="weakness-box">
+              <h4>Top Tone Confusions</h4>
+              <div id="tone-confusions-list" class="confusions-list">
+                <p class="text-muted">No tone confusions recorded yet.</p>
+              </div>
+            </div>
+            <div class="weakness-box">
+              <h4>Top Problem Syllables</h4>
+              <div id="problem-syllables-list" class="problems-list">
+                <p class="text-muted">No repeated errors recorded yet.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="recent-records-section">
           <h3>Recent Practice Sessions</h3>
           <table class="records-table">
@@ -182,5 +289,6 @@
 
   <audio id="audio-player"></audio>
   <script src="app.js"></script>
+  <script src="talk.js"></script>
 </body>
 </html>

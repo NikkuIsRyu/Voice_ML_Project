@@ -16,9 +16,14 @@ from fastapi.responses import FileResponse, JSONResponse
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # Local imports
-from database import get_db, init_db, log_practice, get_stats
+from database import (
+    get_db, init_db, log_practice, get_stats,
+    log_pron_error, get_due_srs_words, get_pron_weakness_profile, log_dialogue_turn
+)
 from audio_utils import load_and_resample, extract_f0_contour, align_and_score_pitch
 from scoring import PronunciationScorer
+from pronunciation_engine import get_pronunciation_engine
+from talk.ws import router as talk_router
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 VOCAB_DIR = PROJECT_ROOT / "data" / "vocab"
@@ -37,6 +42,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(talk_router)
 
 scorer = None
 
@@ -89,8 +96,22 @@ threading.Thread(target=_warmup_worker, daemon=True).start()
 # ----------------- APIs -----------------
 
 @app.get("/api/health")
-def health_check():
-    return {"status": "ok", "app": "Chinese Pronunciation Tutor", "time": time.time()}
+async def health_check():
+    from talk.tts_client import get_tts_client
+    from config import settings
+    tts_available = await get_tts_client().is_available()
+    asr_ready = scorer is not None and scorer._model is not None
+    llm_ready = bool(settings.GEMINI_API_KEY)
+
+    return {
+        "status": "ok",
+        "app": "Chinese Pronunciation Tutor & Live AI Teacher",
+        "time": time.time(),
+        "tts_up": tts_available,
+        "asr_loaded": asr_ready,
+        "llm_configured": llm_ready,
+        "explain_language": settings.EXPLAIN_LANGUAGE
+    }
 
 @app.get("/api/stats")
 def stats_endpoint():
@@ -274,28 +295,40 @@ def score_vocab_practice(
     - Runs ASR & phoneme/tone diagnostic evaluation
     - Updates SRS database
     """
-    # 1. Save user recording
-    temp_wav = UPLOADS_DIR / f"rec_{int(time.time()*1000)}.wav"
+    # 1. Save uploaded recording with its original extension
+    ext = Path(audio.filename or "recording.webm").suffix.lower()
+    if not ext:
+        ext = ".webm"
+    temp_upload = UPLOADS_DIR / f"raw_{int(time.time()*1000)}{ext}"
     content = audio.file.read()
-    with open(temp_wav, "wb") as f:
+    with open(temp_upload, "wb") as f:
         f.write(content)
 
-    # 2. Resample user audio
+    # 2. Resample and validate user audio (handles WebM, OGG, MP4, WAV via ffmpeg)
     try:
-        user_audio, sr = load_and_resample(temp_wav)
+        user_audio, sr = load_and_resample(temp_upload)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Audio decoding error: {e}")
 
-    # 3. Pronunciation & Tone Scoring
+    # Save normalized 16kHz mono WAV for persistence and scoring
+    temp_wav = UPLOADS_DIR / f"rec_{int(time.time()*1000)}.wav"
+    import soundfile as sf
+    sf.write(str(temp_wav), user_audio, sr)
+
+    # 3. Pronunciation & Tone Scoring (ASR Intelligibility)
     sc = get_scorer()
     eval_res = sc.score_audio(str(temp_wav), target_text)
 
-    # 4. Pitch (F0) Extraction for User Audio
-    user_f0_info = extract_f0_contour(user_audio, sr=sr, n_points=80)
+    # 4. Deep Pronunciation & Tone Analysis via PronunciationEngine (A4)
+    engine = get_pronunciation_engine()
+    engine_res = engine.evaluate(user_audio, sr, target_text)
 
-    # 5. Native reference audio F0 extraction
+    # 5. Pitch (F0) Extraction for User Audio & Native reference
+    user_f0_info = extract_f0_contour(user_audio, sr=sr, n_points=80)
     ref_f0_info = {"norm_contour": [0.0]*80, "has_voicing": False}
-    pitch_score = 75.0  # default reasonable fallback
+    pitch_score = 75.0  # default fallback
     aligned_ref = [0.0]*80
     aligned_usr = [0.0]*80
 
@@ -327,12 +360,23 @@ def score_vocab_practice(
         except Exception as e:
             print(f"Ref pitch extraction warning: {e}")
 
-    # 6. Overall Composite Score (40% Phoneme/Char, 40% Tone, 20% Pitch trajectory)
-    char_acc = eval_res["char_accuracy"]
-    tone_acc = eval_res["tone_accuracy"]
-    overall_score = round(char_acc * 0.40 + tone_acc * 0.40 + pitch_score * 0.20, 1)
+    # 6. Overall Composite Score (45% Tone, 40% Segmental/Phoneme, 15% Pitch trajectory)
+    char_acc = engine_res["char_accuracy"]
+    tone_acc = engine_res["tone_accuracy"]
+    overall_score = round(tone_acc * 0.45 + char_acc * 0.40 + pitch_score * 0.15, 1)
 
-    # 7. Log to database
+    # 7. Log syllable errors to weakness profile table
+    for s in engine_res.get("syllables", []):
+        if s.get("issue"):
+            log_pron_error(
+                syllable=f"{s['char']} ({s['expected']})",
+                expected_tone=s["expected_tone"],
+                heard_tone=s["heard_tone"],
+                issue=s["issue"],
+                comment=s.get("advice", "")
+            )
+
+    # 8. Log practice to database
     log_practice(
         item_type="vocab",
         item_id=item_id,
@@ -343,7 +387,7 @@ def score_vocab_practice(
         tone_accuracy=tone_acc,
         pitch_score=pitch_score,
         overall_score=overall_score,
-        error_details=eval_res["diagnostics"],
+        error_details=engine_res["diagnostics"],
         audio_filename=temp_wav.name
     )
 
@@ -354,13 +398,74 @@ def score_vocab_practice(
         "pitch_score": pitch_score,
         "target_text": target_text,
         "recognized_text": eval_res["recognized_text"],
-        "diagnostics": eval_res["diagnostics"],
+        "syllables": engine_res["syllables"],
+        "diagnostics": engine_res["diagnostics"],
+        "user_audio_url": f"/api/audio/uploads/{temp_wav.name}",
         "pitch_curves": {
             "ref": ref_f0_info["norm_contour"],
             "user": user_f0_info["norm_contour"],
             "aligned_ref": aligned_ref,
             "aligned_user": aligned_usr
         }
+    }
+
+@app.get("/api/audio/uploads/{filename}")
+def stream_user_upload(filename: str):
+    p = UPLOADS_DIR / filename
+    if p.exists() and p.is_file():
+        return FileResponse(p, media_type="audio/wav")
+    raise HTTPException(status_code=404, detail="Upload file not found")
+
+@app.get("/api/srs/due")
+def get_srs_due_words():
+    return {"words": get_due_srs_words()}
+
+@app.get("/api/stats/weakness")
+def get_weakness_profile_stats():
+    return get_pron_weakness_profile()
+
+@app.post("/api/score/dialogue")
+def score_dialogue_turn_endpoint(
+    audio: UploadFile = File(...),
+    dialogue_id: str = Form(...),
+    line_index: int = Form(...),
+    target_text: str = Form(...)
+):
+    ext = Path(audio.filename or "recording.webm").suffix.lower() or ".webm"
+    temp_upload = UPLOADS_DIR / f"dial_{int(time.time()*1000)}{ext}"
+    content = audio.file.read()
+    with open(temp_upload, "wb") as f:
+        f.write(content)
+
+    try:
+        user_audio, sr = load_and_resample(temp_upload)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Audio decoding error: {e}")
+
+    temp_wav = UPLOADS_DIR / f"dial_{int(time.time()*1000)}.wav"
+    import soundfile as sf
+    sf.write(str(temp_wav), user_audio, sr)
+
+    sc = get_scorer()
+    asr_res = sc.score_audio(str(temp_wav), target_text)
+
+    engine = get_pronunciation_engine()
+    engine_res = engine.evaluate(user_audio, sr, target_text)
+
+    overall_score = round(engine_res["tone_accuracy"] * 0.50 + engine_res["char_accuracy"] * 0.50, 1)
+    log_dialogue_turn(dialogue_id, line_index, overall_score, asr_res["recognized_text"])
+
+    return {
+        "overall_score": overall_score,
+        "char_accuracy": engine_res["char_accuracy"],
+        "tone_accuracy": engine_res["tone_accuracy"],
+        "target_text": target_text,
+        "recognized_text": asr_res["recognized_text"],
+        "syllables": engine_res["syllables"],
+        "diagnostics": engine_res["diagnostics"],
+        "user_audio_url": f"/api/audio/uploads/{temp_wav.name}"
     }
 
 # Mount static frontend

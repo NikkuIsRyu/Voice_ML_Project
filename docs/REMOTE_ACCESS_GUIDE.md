@@ -62,5 +62,5 @@ http://100.x.y.z:8000
 
 ## Auto-Start on Boot
 To ensure your Desktop is always ready when you leave for campus:
-- Run `run_tutor.bat` or place a shortcut in your Windows Startup folder (`shell:startup`).
+- Run `start_all.bat` (which launches both the GPT-SoVITS v2ProPlus TTS engine and Tutor web server) or place a shortcut in your Windows Startup folder (`shell:startup`).
 - Verify Tailscale is set to start on Windows boot.

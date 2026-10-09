@@ -1,5 +1,8 @@
 import io
 import os
+import shutil
+import subprocess
+from pathlib import Path
 import soundfile as sf
 import numpy as np
 import librosa
@@ -8,27 +11,105 @@ from typing import Tuple, List, Optional, Dict, Any
 
 TARGET_SR = 16000
 
-def load_and_resample(file_bytes_or_path, target_sr: int = TARGET_SR) -> Tuple[np.ndarray, int]:
+def get_ffmpeg_path() -> Optional[str]:
+    """Locate ffmpeg binary in GPT-SoVITS directory or system PATH."""
+    cand = Path(__file__).resolve().parent.parent.parent / "GPT-SoVITS" / "ffmpeg.exe"
+    if cand.exists():
+        return str(cand)
+    system_ffmpeg = shutil.which("ffmpeg")
+    if system_ffmpeg:
+        return system_ffmpeg
+    return None
+
+def load_and_resample(
+    file_bytes_or_path,
+    target_sr: int = TARGET_SR,
+    min_duration: float = 0.3,
+    min_rms: float = 0.003
+) -> Tuple[np.ndarray, int]:
     """
     Load audio from file path or bytes, convert to mono, and resample to target_sr.
+    Decodes WebM, OGG, MP4, WAV using ffmpeg subprocess with soundfile fallback.
+    Validates minimum duration (default >= 0.3s) and speech presence (RMS >= 0.003).
     """
-    if isinstance(file_bytes_or_path, (bytes, bytearray)):
-        bio = io.BytesIO(file_bytes_or_path)
-        data, sr = sf.read(bio)
-    else:
-        data, sr = sf.read(str(file_bytes_or_path))
+    ffmpeg_bin = get_ffmpeg_path()
+    data = None
+    sr = target_sr
 
-    if data.ndim > 1:
-        data = np.mean(data, axis=1)
+    # Attempt decoding with ffmpeg
+    if ffmpeg_bin:
+        try:
+            if isinstance(file_bytes_or_path, (bytes, bytearray)):
+                cmd = [
+                    ffmpeg_bin, "-nostdin", "-v", "error",
+                    "-i", "pipe:0",
+                    "-ac", "1",
+                    "-ar", str(target_sr),
+                    "-f", "f32le",
+                    "pipe:1"
+                ]
+                proc = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                stdout_data, stderr_data = proc.communicate(input=bytes(file_bytes_or_path))
+            else:
+                cmd = [
+                    ffmpeg_bin, "-nostdin", "-v", "error",
+                    "-i", str(file_bytes_or_path),
+                    "-ac", "1",
+                    "-ar", str(target_sr),
+                    "-f", "f32le",
+                    "pipe:1"
+                ]
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                stdout_data, stderr_data = proc.communicate()
 
-    data = data.astype(np.float32)
+            if proc.returncode == 0 and len(stdout_data) > 0:
+                data = np.frombuffer(stdout_data, dtype=np.float32)
+                sr = target_sr
+        except Exception:
+            data = None
 
-    if sr != target_sr:
-        data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
-        sr = target_sr
+    # Fallback to soundfile if ffmpeg didn't decode
+    if data is None:
+        try:
+            if isinstance(file_bytes_or_path, (bytes, bytearray)):
+                bio = io.BytesIO(file_bytes_or_path)
+                data, sr = sf.read(bio)
+            else:
+                data, sr = sf.read(str(file_bytes_or_path))
+
+            if data.ndim > 1:
+                data = np.mean(data, axis=1)
+
+            data = data.astype(np.float32)
+
+            if sr != target_sr:
+                data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
+                sr = target_sr
+        except Exception as e:
+            raise ValueError(f"Failed to decode audio: {e}")
+
+    if data is None or len(data) == 0:
+        raise ValueError("Audio data is empty")
+
+    duration = len(data) / sr
+    if duration < min_duration:
+        raise ValueError(f"Recording too short ({duration:.2f}s). Please speak for at least {min_duration}s.")
+
+    rms = float(np.sqrt(np.mean(data ** 2)))
+    if rms < min_rms:
+        raise ValueError(f"No speech detected (audio is silent, RMS={rms:.5f}). Please check your microphone.")
 
     # Normalize amplitude
-    max_val = np.max(np.abs(data))
+    max_val = float(np.max(np.abs(data)))
     if max_val > 1e-4:
         data = data / max_val * 0.95
 
@@ -36,13 +117,13 @@ def load_and_resample(file_bytes_or_path, target_sr: int = TARGET_SR) -> Tuple[n
 
 def extract_f0_contour(audio: np.ndarray, sr: int = TARGET_SR, n_points: int = 100) -> Dict[str, Any]:
     """
-    Extract F0 pitch contour using librosa.pyin (probabilistic YIN algorithm).
+    Extract F0 pitch contour using fast librosa.yin algorithm with RMS energy-gated voicing.
     Converts to semitones, normalizes trajectory, and interpolates to n_points for visual overlay.
     """
     fmin = librosa.note_to_hz("C2")  # ~65 Hz
     fmax = librosa.note_to_hz("C6")  # ~1046 Hz
 
-    f0, voiced_flag, voiced_probs = librosa.pyin(
+    f0 = librosa.yin(
         audio,
         fmin=fmin,
         fmax=fmax,
@@ -51,10 +132,14 @@ def extract_f0_contour(audio: np.ndarray, sr: int = TARGET_SR, n_points: int = 1
         hop_length=256
     )
 
-    times = librosa.times_like(f0, sr=sr, hop_length=256)
+    # Valid voiced frames: energy gate + bounds check
+    rms = librosa.feature.rms(y=audio, frame_length=1024, hop_length=256)[0]
+    # Ensure length match
+    min_len = min(len(f0), len(rms))
+    f0 = f0[:min_len]
+    rms = rms[:min_len]
 
-    # Valid voiced frames
-    valid_mask = ~np.isnan(f0) & (voiced_probs > 0.4)
+    valid_mask = (rms > 0.012) & (f0 > fmin * 1.02) & (f0 < fmax * 0.98)
     if not np.any(valid_mask):
         # Audio is completely unvoiced or silent
         return {

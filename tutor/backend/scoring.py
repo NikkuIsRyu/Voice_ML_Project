@@ -1,9 +1,13 @@
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from pypinyin import pinyin, Style
 import numpy as np
+import torch
+
+from sandhi import apply_tone_sandhi
 
 # Windows DLL helper for faster-whisper CTranslate2
 try:
@@ -15,6 +19,9 @@ try:
     from faster_whisper import WhisperModel
 except Exception as e:
     WhisperModel = None
+
+# Global GPU lock to serialize heavy inference passes
+GPU_LOCK = threading.Lock()
 
 TONE_DESCRIPTIONS = {
     1: "Tone 1 (High Level, 55): Keep your pitch steady, even, and high — like singing a sustained note.",
@@ -35,8 +42,16 @@ INITIAL_ADVICE = {
 }
 
 class PronunciationScorer:
-    def __init__(self, asr_model_path: str = "D:/.D Dokuments/Uni Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_models/asr/faster-whisper-large-v3", device: str = "cpu"):
-        self.device = device
+    def __init__(
+        self,
+        asr_model_path: str = "D:/.D Dokuments/Uni Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_models/asr/faster-whisper-large-v3",
+        device: Optional[str] = None
+    ):
+        if device is None:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.device = device
+        self.compute_type = "int8_float16" if self.device == "cuda" else "int8"
         self.model_path = asr_model_path
         self._model = None
 
@@ -44,9 +59,17 @@ class PronunciationScorer:
         if self._model is None:
             if WhisperModel is None:
                 raise RuntimeError("faster_whisper is not available")
-            print(f"Loading Whisper model from {self.model_path} ({self.device})...")
-            self._model = WhisperModel(self.model_path, device=self.device, compute_type="int8")
+            print(f"Loading Whisper model from {self.model_path} ({self.device}, {self.compute_type})...")
+            self._model = WhisperModel(self.model_path, device=self.device, compute_type=self.compute_type)
         return self._model
+
+    def transcribe(self, wav_path: str) -> str:
+        """Transcribe speech in audio to Chinese text."""
+        model = self._get_model()
+        with GPU_LOCK:
+            segments, _ = model.transcribe(wav_path, language="zh", beam_size=5)
+            segments = list(segments)
+        return "".join(s.text for s in segments).strip()
 
     def analyze_phonemes(self, text: str) -> List[Dict[str, Any]]:
         """
@@ -90,10 +113,12 @@ class PronunciationScorer:
         Transcribe audio, evaluate segmental and tonal match, and generate diagnostic feedback.
         """
         model = self._get_model()
-        segments, _ = model.transcribe(wav_path, language="zh", beam_size=5)
+        with GPU_LOCK:
+            segments, _ = model.transcribe(wav_path, language="zh", beam_size=5)
+            segments = list(segments)
         recognized = "".join(s.text for s in segments).strip()
 
-        target_analysis = self.analyze_phonemes(target_text)
+        target_analysis = apply_tone_sandhi(self.analyze_phonemes(target_text))
         rec_analysis = self.analyze_phonemes(recognized)
 
         target_chars = [x["char"] for x in target_analysis]
@@ -116,25 +141,29 @@ class PronunciationScorer:
                     # Phoneme match but different character/tone
                     rec_match = rec_item
 
+            expected_tone = tgt.get("expected_tone", tgt["tone"])
             if matched:
                 char_matches += 1
                 tone_matches += 1
+                comment = "Accurate pronunciation and tone."
+                if tgt.get("sandhi_applied"):
+                    comment = f"Accurate pronunciation with correct tone sandhi (Tone {expected_tone})."
                 diagnostics.append({
                     "char": tgt["char"],
                     "target_pinyin": tgt["pinyin"],
-                    "target_tone": tgt["tone"],
+                    "target_tone": expected_tone,
                     "status": "correct",
-                    "comment": "Accurate pronunciation and tone."
+                    "comment": comment
                 })
-            elif rec_match and rec_match["tone"] != tgt["tone"]:
+            elif rec_match and rec_match["tone"] != expected_tone:
                 # Tone mistake
                 diagnostics.append({
                     "char": tgt["char"],
                     "target_pinyin": tgt["pinyin"],
-                    "target_tone": tgt["tone"],
+                    "target_tone": expected_tone,
                     "detected_tone": rec_match["tone"],
                     "status": "tone_error",
-                    "comment": f"Tone mismatch! Detected Tone {rec_match['tone']}, expected Tone {tgt['tone']}. {TONE_DESCRIPTIONS.get(tgt['tone'], '')}"
+                    "comment": f"Tone mismatch! Detected Tone {rec_match['tone']}, expected Tone {expected_tone}. {TONE_DESCRIPTIONS.get(expected_tone, '')}"
                 })
             else:
                 # Segmental / phone error
@@ -144,7 +173,7 @@ class PronunciationScorer:
                 diagnostics.append({
                     "char": tgt["char"],
                     "target_pinyin": tgt["pinyin"],
-                    "target_tone": tgt["tone"],
+                    "target_tone": expected_tone,
                     "status": "pronunciation_error",
                     "comment": f"Character was mispronounced or skipped.{advice}"
                 })

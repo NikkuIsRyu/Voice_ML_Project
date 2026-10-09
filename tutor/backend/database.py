@@ -64,6 +64,19 @@ def init_db():
     )
     """)
 
+    # 4. Pronunciation & Tone Error Tracking
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pron_errors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp REAL,
+        syllable TEXT,
+        expected_tone INTEGER,
+        heard_tone INTEGER,
+        issue TEXT,
+        comment TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -185,4 +198,83 @@ def get_stats():
         "recent_attempts": recent
     }
 
+def log_pron_error(syllable: str, expected_tone: int, heard_tone: int, issue: str, comment: str = ""):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    INSERT INTO pron_errors (timestamp, syllable, expected_tone, heard_tone, issue, comment)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """, (time.time(), syllable, expected_tone, heard_tone, issue, comment))
+    conn.commit()
+    conn.close()
+
+def get_due_srs_words(limit: int = 25) -> List[Dict[str, Any]]:
+    conn = get_db()
+    cursor = conn.cursor()
+    now = time.time()
+    cursor.execute("""
+    SELECT item_id as id, text as chinese, pinyin, translation, lesson, repetitions, last_score
+    FROM srs_items
+    WHERE (next_review_time <= ? AND total_attempts > 0) OR total_attempts = 0
+    ORDER BY (CASE WHEN total_attempts > 0 THEN 0 ELSE 1 END), next_review_time ASC
+    LIMIT ?
+    """, (now, limit))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return rows
+
+def get_pron_weakness_profile() -> Dict[str, Any]:
+    conn = get_db()
+    cursor = conn.cursor()
+    # Tone confusion matrix: (expected_tone, heard_tone) -> count
+    cursor.execute("""
+    SELECT expected_tone, heard_tone, COUNT(*) as cnt
+    FROM pron_errors
+    WHERE issue = 'tone'
+    GROUP BY expected_tone, heard_tone
+    """)
+    confusions = [
+        {
+            "expected_tone": r["expected_tone"],
+            "heard_tone": r["heard_tone"],
+            "expected": r["expected_tone"],
+            "heard": r["heard_tone"],
+            "count": r["cnt"]
+        }
+        for r in cursor.fetchall()
+    ]
+
+    # Top problem syllables
+    cursor.execute("""
+    SELECT syllable, issue, COUNT(*) as cnt
+    FROM pron_errors
+    GROUP BY syllable, issue
+    ORDER BY cnt DESC
+    LIMIT 10
+    """)
+    top_problems = [{"syllable": r["syllable"], "issue": r["issue"], "count": r["cnt"]} for r in cursor.fetchall()]
+
+    conn.close()
+    return {
+        "tone_confusions": confusions,
+        "top_tone_confusions": confusions,
+        "top_problem_syllables": top_problems
+    }
+
+def log_dialogue_turn(dialogue_id: str, line_index: int, score: float, recognized_text: str):
+    conn = get_db()
+    cursor = conn.cursor()
+    now = time.time()
+    cursor.execute("""
+    INSERT INTO dialogue_progress (dialogue_id, title, total_lines, completed_turns, average_score, last_practiced)
+    VALUES (?, ?, 10, 1, ?, ?)
+    ON CONFLICT(dialogue_id) DO UPDATE SET
+        completed_turns = completed_turns + 1,
+        average_score = (average_score * completed_turns + excluded.average_score) / (completed_turns + 1),
+        last_practiced = excluded.last_practiced
+    """, (dialogue_id, dialogue_id, score, now))
+    conn.commit()
+    conn.close()
+
 init_db()
+
