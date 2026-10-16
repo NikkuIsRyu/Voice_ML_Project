@@ -7,6 +7,7 @@ import soundfile as sf
 import numpy as np
 import librosa
 from scipy.spatial.distance import cdist
+from scipy import signal
 from typing import Tuple, List, Optional, Dict, Any
 
 TARGET_SR = 16000
@@ -21,6 +22,126 @@ def get_ffmpeg_path() -> Optional[str]:
         return system_ffmpeg
     return None
 
+def trim_speech(
+    y: np.ndarray,
+    sr: int = TARGET_SR,
+    top_db: float = 28.0,
+    frame_length: int = 512,
+    hop_length: int = 160,
+    pad_ms: float = 40.0
+) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """
+    Remove leading and trailing silence/clicks from speech audio using bandpass-filtered energy VAD.
+    - Filters 70 Hz - 5000 Hz using 4th-order Butterworth to prevent low-frequency rumble / plosives from biasing energy.
+    - Measures short-time RMS energy relative to 95th percentile (robust against loud onset clicks/spikes).
+    - Preserves pad_ms (default 40ms) margin on both ends.
+    - Returns (trimmed_y, vad_meta).
+    """
+    if y is None or len(y) == 0:
+        return np.array([], dtype=np.float32), {
+            "speech_ratio": 0.0,
+            "trimmed_ms_leading": 0.0,
+            "trimmed_ms_trailing": 0.0,
+            "active_duration_s": 0.0,
+            "start_sample": 0,
+            "end_sample": 0
+        }
+
+    # Bandpass filter for speech energy estimation (70 Hz to 5000 Hz)
+    nyquist = float(sr) / 2.0
+    low_cutoff = max(20.0, min(70.0, nyquist * 0.5))
+    high_cutoff = max(low_cutoff + 50.0, min(5000.0, nyquist - 100.0))
+
+    try:
+        sos = signal.butter(4, [low_cutoff, high_cutoff], btype="bandpass", fs=sr, output="sos")
+        filtered = signal.sosfiltfilt(sos, y)
+    except Exception:
+        filtered = y
+
+    # Calculate frame RMS energy
+    rms = librosa.feature.rms(y=filtered, frame_length=frame_length, hop_length=hop_length)[0]
+    if len(rms) == 0:
+        return y, {
+            "speech_ratio": 1.0,
+            "trimmed_ms_leading": 0.0,
+            "trimmed_ms_trailing": 0.0,
+            "active_duration_s": len(y) / sr,
+            "start_sample": 0,
+            "end_sample": len(y)
+        }
+
+    p95_energy = float(np.percentile(rms, 95))
+    if p95_energy < 1e-5:
+        # Near complete silence
+        return y, {
+            "speech_ratio": 0.0,
+            "trimmed_ms_leading": 0.0,
+            "trimmed_ms_trailing": 0.0,
+            "active_duration_s": 0.0,
+            "start_sample": 0,
+            "end_sample": len(y)
+        }
+
+    # Relative energy threshold based on top_db below p95
+    thresh = p95_energy * (10.0 ** (-float(top_db) / 20.0))
+    is_active = (rms >= thresh)
+
+    # Filter out isolated 1-frame click/spike artifacts (< 20ms)
+    sustained_active = np.zeros_like(is_active, dtype=bool)
+    n_frames = len(is_active)
+    i = 0
+    while i < n_frames:
+        if is_active[i]:
+            j = i
+            while j < n_frames and is_active[j]:
+                j += 1
+            if (j - i) >= 2:
+                sustained_active[i:j] = True
+            i = j
+        else:
+            i += 1
+
+    active_indices = np.where(sustained_active)[0]
+    if len(active_indices) == 0:
+        active_indices = np.where(is_active)[0]
+
+    if len(active_indices) == 0:
+        return y, {
+            "speech_ratio": 0.0,
+            "trimmed_ms_leading": 0.0,
+            "trimmed_ms_trailing": 0.0,
+            "active_duration_s": 0.0,
+            "start_sample": 0,
+            "end_sample": len(y)
+        }
+
+    start_frame = int(active_indices[0])
+    end_frame = int(active_indices[-1])
+
+    start_sample = start_frame * hop_length
+    end_sample = min(len(y), end_frame * hop_length + frame_length)
+
+    pad_samples = int((pad_ms / 1000.0) * sr)
+    start_sample = max(0, start_sample - pad_samples)
+    end_sample = min(len(y), end_sample + pad_samples)
+
+    trimmed_y = y[start_sample:end_sample]
+    trimmed_ms_leading = (start_sample / sr) * 1000.0
+    trimmed_ms_trailing = ((len(y) - end_sample) / sr) * 1000.0
+    active_dur = len(trimmed_y) / sr
+    ratio = len(trimmed_y) / max(len(y), 1)
+
+    vad_meta = {
+        "speech_ratio": round(ratio, 3),
+        "trimmed_ms_leading": round(trimmed_ms_leading, 1),
+        "trimmed_ms_trailing": round(trimmed_ms_trailing, 1),
+        "active_duration_s": round(active_dur, 3),
+        "start_sample": start_sample,
+        "end_sample": end_sample
+    }
+
+    return trimmed_y, vad_meta
+
 def load_and_resample(
     file_bytes_or_path,
     target_sr: int = TARGET_SR,
@@ -30,6 +151,7 @@ def load_and_resample(
     """
     Load audio from file path or bytes, convert to mono, and resample to target_sr.
     Decodes WebM, OGG, MP4, WAV using ffmpeg subprocess with soundfile fallback.
+    Trims edge silence/clicks via VAD before peak-normalizing to preserve speech dynamic range.
     Validates minimum duration (default >= 0.3s) and speech presence (RMS >= 0.003).
     """
     ffmpeg_bin = get_ffmpeg_path()
@@ -108,7 +230,12 @@ def load_and_resample(
     if rms < min_rms:
         raise ValueError(f"No speech detected (audio is silent, RMS={rms:.5f}). Please check your microphone.")
 
-    # Normalize amplitude
+    # 1. Trim speech with spectral VAD (removes leading/trailing clicks and silence)
+    trimmed_data, vad_meta = trim_speech(data, sr=sr)
+    if len(trimmed_data) > 0 and vad_meta["active_duration_s"] >= 0.12:
+        data = trimmed_data
+
+    # 2. Peak normalization applied AFTER trimming to prevent clicks from depressing speech volume
     max_val = float(np.max(np.abs(data)))
     if max_val > 1e-4:
         data = data / max_val * 0.95
@@ -117,8 +244,8 @@ def load_and_resample(
 
 def extract_f0_contour(audio: np.ndarray, sr: int = TARGET_SR, n_points: int = 100) -> Dict[str, Any]:
     """
-    Extract F0 pitch contour using fast librosa.yin algorithm with RMS energy-gated voicing.
-    Converts to semitones, normalizes trajectory, and interpolates to n_points for visual overlay.
+    Extract F0 pitch contour using fast librosa.yin algorithm with relative RMS energy-gated voicing
+    and edge-burst noise filtering. Converts to semitones, normalizes trajectory, and interpolates to n_points.
     """
     fmin = librosa.note_to_hz("C2")  # ~65 Hz
     fmax = librosa.note_to_hz("C6")  # ~1046 Hz
@@ -132,14 +259,42 @@ def extract_f0_contour(audio: np.ndarray, sr: int = TARGET_SR, n_points: int = 1
         hop_length=256
     )
 
-    # Valid voiced frames: energy gate + bounds check
+    # 3-point median filter on raw f0 to eliminate single-frame octave jumps/glitches
+    if len(f0) >= 3:
+        f0 = signal.medfilt(f0, 3)
+
+    # Valid voiced frames: relative energy gate + bounds check + spectral flatness check
     rms = librosa.feature.rms(y=audio, frame_length=1024, hop_length=256)[0]
+    sf = librosa.feature.spectral_flatness(y=audio, n_fft=1024, hop_length=256)[0]
+
     # Ensure length match
-    min_len = min(len(f0), len(rms))
+    min_len = min(len(f0), len(rms), len(sf))
     f0 = f0[:min_len]
     rms = rms[:min_len]
+    sf = sf[:min_len]
 
-    valid_mask = (rms > 0.012) & (f0 > fmin * 1.02) & (f0 < fmax * 0.98)
+    p90_rms = float(np.percentile(rms, 90)) if len(rms) > 0 else 0.012
+    rms_thresh = max(0.008, 0.08 * p90_rms)
+    # Voiced speech has low spectral flatness (< 0.20) unlike unvoiced fricatives/noise (> 0.35)
+    valid_mask = (rms > rms_thresh) & (f0 > fmin * 1.02) & (f0 < fmax * 0.98) & (sf < 0.20)
+
+    # Filter out short isolated voicing bursts (< 3 consecutive frames = < 48ms)
+    # to eliminate unvoiced initial consonant clicks/fricative glitches
+    cleaned_mask = np.copy(valid_mask)
+    n_frames = len(valid_mask)
+    i = 0
+    while i < n_frames:
+        if cleaned_mask[i]:
+            j = i
+            while j < n_frames and cleaned_mask[j]:
+                j += 1
+            island_len = j - i
+            if island_len < 3:
+                cleaned_mask[i:j] = False
+            i = j
+        else:
+            i += 1
+    valid_mask = cleaned_mask
     if not np.any(valid_mask):
         # Audio is completely unvoiced or silent
         return {

@@ -146,7 +146,26 @@ class PronunciationEngine:
         f0 = f0[:min_l]
         rms = rms[:min_l]
 
-        valid_mask = (rms > 0.012) & (f0 > 70) & (f0 < 900)
+        p90_rms = float(np.percentile(rms, 90)) if len(rms) > 0 else 0.012
+        rms_thresh = max(0.008, 0.08 * p90_rms)
+        valid_mask = (rms > rms_thresh) & (f0 > 70) & (f0 < 900)
+
+        # Island filtering for voicing continuity
+        cleaned_mask = np.copy(valid_mask)
+        n_frames = len(valid_mask)
+        i = 0
+        while i < n_frames:
+            if cleaned_mask[i]:
+                j = i
+                while j < n_frames and cleaned_mask[j]:
+                    j += 1
+                if (j - i) < 3:
+                    cleaned_mask[i:j] = False
+                i = j
+            else:
+                i += 1
+        valid_mask = cleaned_mask
+
         median_f0 = float(np.median(f0[valid_mask])) if np.any(valid_mask) else 220.0
 
         # 2. Forced Alignment with MMS_FA
