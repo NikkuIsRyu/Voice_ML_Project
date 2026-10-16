@@ -1,0 +1,61 @@
+{
+  "winning_checkpoint": {
+    "name": "female_v3_epoch10",
+    "sovits": "SoVITS_weights_v2ProPlus/female_v3_e10_s6170.pth",
+    "gpt": "GPT_weights_v2ProPlus/female_v3-e10.ckpt"
+  },
+  "winning_cer": 27.809523809523807,
+  "winning_tone_acc": 72.66666666666667,
+  "all_sweep_results": [
+    {
+      "cand": {
+        "name": "female_v3_epoch10",
+        "sovits": "SoVITS_weights_v2ProPlus/female_v3_e10_s6170.pth",
+        "gpt": "GPT_weights_v2ProPlus/female_v3-e10.ckpt"
+      },
+      "cer": 27.809523809523807,
+      "tone_acc": 72.66666666666667
+    },
+    {
+      "cand": {
+        "name": "female_v3_epoch8",
+        "sovits": "SoVITS_weights_v2ProPlus/female_v3_e8_s4936.pth",
+        "gpt": "GPT_weights_v2ProPlus/female_v3-e8.ckpt"
+      },
+      "cer": 38.64285714285714,
+      "tone_acc": 61.83333333333334
+    },
+    {
+      "cand": {
+        "name": "female_v3_epoch12",
+        "sovits": "SoVITS_weights_v2ProPlus/female_v3_e12_s7404.pth",
+        "gpt": "GPT_weights_v2ProPlus/female_v3-e12.ckpt"
+      },
+      "cer": 42.42063492063492,
+      "tone_acc": 60.27777777777777
+    }
+  ],
+  "gate_samples": [
+    {
+      "tag": "sample1_minimal_pair_100x",
+      "text": "妈妈骑马，马慢，妈妈骂马。",
+      "speed": 1.0,
+      "v2_path": "D:/.D Dokuments/Uni Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_ML_Project/eval/comparisons/sample1_minimal_pair_100x_v2.wav",
+      "v3_path": "D:/.D Dokuments/Uni Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_ML_Project/eval/comparisons/sample1_minimal_pair_100x_v3.wav"
+    },
+    {
+      "tag": "sample2_slow_vocab_065x",
+      "text": "图书馆。认识你很高兴。",
+      "speed": 0.65,
+      "v2_path": "D:/.D Dokuments/Uni Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_ML_Project/eval/comparisons/sample2_slow_vocab_065x_v2.wav",
+      "v3_path": "D:/.D Dokuments/Uni Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_ML_Project/eval/comparisons/sample2_slow_vocab_065x_v3.wav"
+    },
+    {
+      "tag": "sample3_dialogue_100x",
+      "text": "今天下午你有时间吗？我们可以一起去图书馆借书。",
+      "speed": 1.0,
+      "v2_path": "D:/.D Dokuments/Uni Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_ML_Project/eval/comparisons/sample3_dialogue_100x_v2.wav",
+      "v3_path": "D:/.D Dokuments/Uni Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_ML_Project/eval/comparisons/sample3_dialogue_100x_v3.wav"
+    }
+  ]
+}

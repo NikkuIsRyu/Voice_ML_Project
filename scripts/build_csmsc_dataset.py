@@ -1,32 +1,37 @@
 import os
 import sys
 import re
-import glob
-from pathlib import Path
+import json
 import argparse
+from pathlib import Path
 import soundfile as sf
 import numpy as np
 
-def clean_prosody_text(raw_text):
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "tutor" / "backend"))
+from audio_utils import trim_speech
+
+def clean_prosody_text(raw_text: str) -> str:
     """
     Convert DataBaker CSMSC prosodic tags to standard Chinese punctuation:
     #1: minor word boundary (remove)
-    #2: minor phrase pause (remove or comma depending on rhythm)
+    #2: minor phrase pause (replace with comma if between words)
     #3: major phrase boundary (comma '，')
     #4: sentence boundary (period '。')
     """
     t = raw_text.strip()
-    # Replace #3 with comma
     t = t.replace("#3", "，")
-    # Replace #4 with period
     t = t.replace("#4", "。")
-    # Replace #2 with comma if surrounded by characters, or remove
-    # In Putonghua, #2 is a light pause; replacing with comma keeps natural rhythm
     t = t.replace("#2", "，")
-    # Remove #1
     t = t.replace("#1", "")
     
-    # Clean up double punctuation
     t = re.sub(r"[，,]+", "，", t)
     t = re.sub(r"[。.]+", "。", t)
     t = re.sub(r"[，,][。.]", "。", t)
@@ -36,18 +41,16 @@ def clean_prosody_text(raw_text):
         t += "。"
     return t
 
-def normalize_loudness(audio_data, sr, target_lufs=-23.0):
+def normalize_loudness(audio_data: np.ndarray, sr: int, target_lufs: float = -23.0) -> np.ndarray:
     """
     RMS-based loudness normalization to approximate -23 LUFS with peak limiting.
     """
-    rms = np.sqrt(np.mean(audio_data**2))
+    rms = np.sqrt(np.mean(audio_data ** 2))
     if rms < 1e-6:
         return audio_data
-    # -23 LUFS is approximately RMS of 0.0707 (-23 dBFS)
     target_rms = 10.0 ** (target_lufs / 20.0)
     gain = target_rms / rms
     norm = audio_data * gain
-    # Peak limit at -1 dBFS (0.891)
     peak = np.max(np.abs(norm))
     if peak > 0.891:
         norm = norm * (0.891 / peak)
@@ -57,16 +60,29 @@ def main():
     parser = argparse.ArgumentParser(description="Prepare Biaobei CSMSC dataset for GPT-SoVITS")
     parser.add_argument("--source_dir", default="../Voice_models/datasets/BZNSYP",
                         help="Path to unpacked BZNSYP folder")
-    parser.add_argument("--output_dir", default="data/train_v2/csmsc",
+    parser.add_argument("--output_dir", default="data/train_v3/csmsc",
                         help="Output directory for formatted dataset")
-    parser.add_argument("--max_items", type=int, default=1000,
-                        help="Number of sentences to prepare (default: 1000, approx. 75 min)")
+    parser.add_argument("--target_hours", type=float, default=2.5,
+                        help="Target total duration in hours (default: 2.5 hours = ~9000s)")
+    parser.add_argument("--max_items", type=int, default=None,
+                        help="Maximum number of sentences to prepare (optional)")
+    parser.add_argument("--holdout", type=int, default=100,
+                        help="Number of clean items reserved in holdout directory for eval/reference selection")
+    parser.add_argument("--min_dur", type=float, default=2.0,
+                        help="Minimum clip duration in seconds (default: 2.0)")
+    parser.add_argument("--max_dur", type=float, default=10.0,
+                        help="Maximum clip duration in seconds (default: 10.0)")
     args = parser.parse_args()
 
     src = Path(args.source_dir).resolve()
     out = Path(args.output_dir).resolve()
     wav_out = out / "wavs"
     wav_out.mkdir(parents=True, exist_ok=True)
+
+    holdout_out = out.parent / f"{out.name}_holdout"
+    holdout_wav_out = holdout_out / "wavs"
+    if args.holdout > 0:
+        holdout_wav_out.mkdir(parents=True, exist_ok=True)
 
     # Locate ProsodyLabeling file
     label_files = list(src.glob("**/000001-010000.txt"))
@@ -78,7 +94,6 @@ def main():
     # Locate Wave directory
     wave_dirs = list(src.glob("**/Wave"))
     if not wave_dirs:
-        # Check if wav files are directly in src or subfolder
         wav_candidates = list(src.glob("**/*.wav"))
         if not wav_candidates:
             raise FileNotFoundError(f"Could not find Wave directory or WAV files in {src}")
@@ -92,7 +107,6 @@ def main():
     with open(label_path, "r", encoding="utf-8") as f:
         lines = [l.strip() for l in f if l.strip()]
 
-    # In CSMSC, every odd line (0, 2, 4...) is id + text, even line is pinyin
     for i in range(0, len(lines), 2):
         parts = lines[i].split("\t")
         if len(parts) >= 2:
@@ -107,15 +121,21 @@ def main():
                 "pinyin": pinyin
             })
 
-    print(f"Parsed {len(items)} items from transcript.")
+    print(f"Parsed {len(items)} items from CSMSC transcript.")
 
-    # Filter items: take first max_items that have valid wav files
+    target_seconds = (args.target_hours * 3600.0) if args.target_hours else float("inf")
+    print(f"Target duration: {args.target_hours:.2f}h ({target_seconds:.0f}s), holdout: {args.holdout} clips")
+
+    holdout_items = []
     selected = []
     total_duration = 0.0
+    rejected_quality = 0
 
-    print(f"\nProcessing and normalizing audio (target: {args.max_items} clips)...")
+    print(f"\nProcessing and curating audio files (serially, low CPU footprint)...")
     for item in items:
-        if len(selected) >= args.max_items:
+        if args.max_items and len(selected) >= args.max_items:
+            break
+        if total_duration >= target_seconds:
             break
 
         wav_name = f"{item['id']}.wav"
@@ -125,19 +145,43 @@ def main():
 
         try:
             data, sr = sf.read(str(src_wav))
-            # Convert stereo to mono if needed
             if data.ndim > 1:
                 data = np.mean(data, axis=1)
+            data = data.astype(np.float32)
 
-            dur = len(data) / sr
-            # Keep clips between 1.5s and 12s (ideal for GPT-SoVITS)
-            if dur < 1.5 or dur > 12.0:
+            # Quality gate 1: Reject clipping
+            if np.max(np.abs(data)) >= 0.999:
+                rejected_quality += 1
                 continue
 
-            # Normalize loudness
-            norm_data = normalize_loudness(data, sr, target_lufs=-23.0)
+            # Quality gate 2: VAD trimming of edge silence
+            trimmed_data, vad_meta = trim_speech(data, sr=sr, top_db=30.0)
+            dur = len(trimmed_data) / sr
 
-            # Target output wav
+            # Duration boundaries
+            if dur < args.min_dur or dur > args.max_dur:
+                continue
+
+            # Quality gate 3: Reject abnormal silence / low active speech ratio
+            if vad_meta["speech_ratio"] < 0.50:
+                rejected_quality += 1
+                continue
+
+            # Loudness normalization
+            norm_data = normalize_loudness(trimmed_data, sr, target_lufs=-23.0)
+
+            # Deterministic holdout split: every 30th clean candidate until holdout target reached
+            if len(holdout_items) < args.holdout and (len(selected) + len(holdout_items)) % 25 == 0:
+                h_wav = holdout_wav_out / wav_name
+                sf.write(str(h_wav), norm_data, sr)
+                holdout_items.append({
+                    **item,
+                    "wav_path": str(h_wav).replace("\\", "/"),
+                    "duration": dur
+                })
+                continue
+
+            # Save training wav
             tgt_wav = wav_out / wav_name
             sf.write(str(tgt_wav), norm_data, sr)
 
@@ -148,30 +192,38 @@ def main():
             })
             total_duration += dur
 
-            if len(selected) % 100 == 0:
-                print(f"[{len(selected)}/{args.max_items}] Processed {total_duration/60:.1f} mins of audio...")
+            if len(selected) % 200 == 0:
+                print(f"[{len(selected)} clips] Total: {total_duration/60:.1f} min ({total_duration/3600:.2f} h) | Holdout: {len(holdout_items)}")
+
         except Exception as e:
             print(f"Error processing {src_wav}: {e}")
 
-    print(f"\nCompleted selection: {len(selected)} items, {total_duration/60:.1f} minutes ({total_duration/3600:.2f} hours).")
+    print(f"\nSelection complete:")
+    print(f"  Training clips : {len(selected)} ({total_duration/3600:.2f} hours)")
+    print(f"  Holdout clips  : {len(holdout_items)}")
+    print(f"  Rejected clips : {rejected_quality}")
 
-    # Write GPT-SoVITS training list: 2-name2text.txt
-    # Format: {wav_path}|{speaker_name}|{language}|{text}
+    # Write training list for GPT-SoVITS
     name2text_path = out / "2-name2text.txt"
     with open(name2text_path, "w", encoding="utf-8") as f:
         for item in selected:
             f.write(f"{item['wav_path']}|csmsc|zh|{item['text']}\n")
+    print(f"Wrote training manifest: {name2text_path}")
 
-    print(f"Wrote metadata: {name2text_path}")
+    # Write holdout manifest
+    if holdout_items:
+        holdout_manifest_path = holdout_out / "holdout_manifest.json"
+        with open(holdout_manifest_path, "w", encoding="utf-8") as f:
+            json.dump(holdout_items, f, ensure_ascii=False, indent=2)
+        print(f"Wrote holdout manifest: {holdout_manifest_path}")
 
-    # Select best reference clips (between 4.0s and 6.5s, clean tone)
+    # Select best reference audio for prompting (5.0s to 7.0s, natural length, clear text)
     ref_candidates = [
-        item for item in selected
-        if 4.0 <= item["duration"] <= 6.5 and len(item["text"]) >= 10 and len(item["text"]) <= 22
+        item for item in (holdout_items + selected)
+        if 5.0 <= item["duration"] <= 7.0 and 12 <= len(item["text"]) <= 22
     ]
     ref_item = ref_candidates[0] if ref_candidates else selected[0]
 
-    # Save reference audio and prompt text
     ref_wav_out = out / "csmsc_ref.wav"
     ref_txt_out = out / "csmsc_ref.txt"
 
@@ -180,10 +232,10 @@ def main():
     with open(ref_txt_out, "w", encoding="utf-8") as f:
         f.write(ref_item["text"])
 
-    print(f"\nSaved Reference Audio for Zero-Shot & Prompting:")
-    print(f"- Wav: {ref_wav_out}")
-    print(f"- Text: '{ref_item['text']}' (Duration: {ref_item['duration']:.2f}s)")
-    print("\nDataset preparation script finished successfully!")
+    print(f"\nSelected Best Reference Audio for Prompting:")
+    print(f"  Path    : {ref_wav_out}")
+    print(f"  Text    : {ref_item['text']}")
+    print(f"  Duration: {ref_item['duration']:.2f}s")
 
 if __name__ == "__main__":
     main()
