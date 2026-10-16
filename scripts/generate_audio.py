@@ -130,6 +130,8 @@ def parse_text_file(filepath):
     Returns:
         List of (label, chinese_text) tuples
     """
+    import re
+
     entries = []
     with open(filepath, "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
