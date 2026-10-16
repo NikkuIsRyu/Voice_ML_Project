@@ -24,7 +24,11 @@ models/
 output/
 output_v2/
 output_v2_slow/
+output_v3/
+data/train_v3/
+backups/
 *.apkg
+*.colpkg
 tutor/uploads/
 *.db
 
@@ -32,6 +36,7 @@ tutor/uploads/
 *.zip
 *.tar
 *.tar.gz
+*.tgz
 *.7z
 *.rar
 tools_7z/
