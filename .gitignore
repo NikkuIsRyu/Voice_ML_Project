@@ -1,31 +1,45 @@
 # GPT-SoVITS upstream repo (separate git clone, large files)
 GPT-SoVITS/
 
-# Training outputs & checkpoints
+# Machine Learning models & weights (large files, keep locally)
+ml_models/
+models/
 *.pth
 *.ckpt
 *.pt
 *.bin
 *.safetensors
+*.onnx
+*.h5
 
-# Audio files (large, keep locally)
+# Audio & Media files (large, keep locally)
 *.wav
 *.mp3
 *.flac
 *.ogg
+*.m4a
+*.webm
+*.mp4
 !tests/fixtures/*
 output/
 output_v2/
+output_v2_slow/
+*.apkg
 tutor/uploads/
 *.db
 
-# Local tools
+# Archives & binaries
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
 tools_7z/
 
-
-# Python
+# Python & testing
 __pycache__/
 *.pyc
+.pytest_cache/
 .eggs/
 *.egg-info/
 dist/
