@@ -22,7 +22,9 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -30,8 +32,11 @@ import genanki
 from pypinyin import pinyin, Style
 
 if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 
 # === Tone Colors & Rules ===
@@ -300,6 +305,120 @@ hr.soft-divider {
 .dot-3 { background-color: #2563eb; }
 .dot-4 { background-color: #9333ea; }
 .dot-5 { background-color: #64748b; }
+
+/* Dual Audio Row */
+.audio-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+    flex-wrap: wrap;
+}
+
+.audio-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 9999px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+.audio-badge.slow {
+    background: #fef3c7;
+    color: #b45309;
+    border-color: #fde68a;
+}
+
+.audio-badge.ex {
+    background: #f3e8ff;
+    color: #7e22ce;
+    border-color: #e9d5ff;
+}
+
+.nightMode .audio-badge { background: #0c4a6e; color: #bae6fd; border-color: #075985; }
+.nightMode .audio-badge.slow { background: #78350f; color: #fde68a; border-color: #92400e; }
+.nightMode .audio-badge.ex { background: #581c87; color: #e9d5ff; border-color: #6b21a8; }
+
+/* Example Box */
+.example-box {
+    margin-top: 18px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    text-align: left;
+}
+
+.nightMode .example-box {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.example-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.nightMode .example-title {
+    color: #94a3b8;
+}
+
+.example-hanzi {
+    font-size: 20px;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.4;
+    margin-bottom: 4px;
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+}
+
+.example-hanzi b {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+.nightMode .example-hanzi {
+    color: #f8fafc;
+}
+
+.nightMode .example-hanzi b {
+    color: #60a5fa;
+}
+
+.example-pinyin {
+    font-size: 14px;
+    color: #475569;
+    margin-bottom: 4px;
+}
+
+.nightMode .example-pinyin {
+    color: #94a3b8;
+}
+
+.example-trans {
+    font-size: 14px;
+    color: #334155;
+    font-style: italic;
+    margin-bottom: 8px;
+}
+
+.nightMode .example-trans {
+    color: #cbd5e1;
+}
+
+.example-audio {
+    margin-top: 6px;
+}
 """
 
 # === Anki Card Templates ===
@@ -469,12 +588,51 @@ def format_lesson_label(lesson_code: str) -> str:
     return lesson_code
 
 
+def backup_existing_apkg_files(output_dir: Path, backup_dir: Path):
+    """Backup any existing .apkg files to backups/anki_apkg_backup_<timestamp>/."""
+    existing_apkgs = list(output_dir.glob("*.apkg"))
+    if not existing_apkgs:
+        return None
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    target_backup_dir = backup_dir / f"anki_apkg_backup_{timestamp}"
+    target_backup_dir.mkdir(parents=True, exist_ok=True)
+    backed_up = []
+    for apkg in existing_apkgs:
+        dest = target_backup_dir / apkg.name
+        shutil.copy2(apkg, dest)
+        backed_up.append(dest)
+    print(f"  ✓ Backed up {len(backed_up)} existing .apkg deck(s) to: {target_backup_dir}")
+    return target_backup_dir
+
+
 def export_decks(vocab_dir: Path, audio_dir: Path, output_dir: Path,
                  master_deck_name: str = "Chinesisch Sprachkurs (Refined Voice)",
-                 cards_mode: str = "both", export_individual: bool = True):
-    """Generate master and individual Anki .apkg files."""
+                 cards_mode: str = "both", export_individual: bool = True,
+                 slow_audio_dir: Optional[Path] = None,
+                 examples_manifest_path: Optional[Path] = None,
+                 examples_audio_dir: Optional[Path] = None,
+                 backup_dir: Optional[Path] = None):
+    """Generate master and individual Anki .apkg files with dual audio & example sentences."""
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Automated backup of existing decks
+    if backup_dir is None:
+        backup_dir = output_dir.parent.parent / "backups"
+    backup_existing_apkg_files(output_dir, backup_dir)
+
     model = create_anki_model(cards_mode=cards_mode)
+
+    # 2. Load example sentences if available
+    examples_by_key = {}
+    if examples_manifest_path and examples_manifest_path.exists():
+        try:
+            with open(examples_manifest_path, "r", encoding="utf-8") as f:
+                raw_ex = json.load(f)
+                for item in raw_ex:
+                    examples_by_key[(item["lesson"], item["line_idx"], item["hanzi"])] = item
+            print(f"Loaded {len(examples_by_key)} contextual example sentences from {examples_manifest_path.name}")
+        except Exception as e:
+            print(f"Warning: Could not load example sentences: {e}")
 
     txt_files = sorted(vocab_dir.glob("*.txt"))
     if not txt_files:
@@ -487,8 +645,11 @@ def export_decks(vocab_dir: Path, audio_dir: Path, output_dir: Path,
     lesson_stats = []
 
     for txt_file in txt_files:
+        if txt_file.name.endswith("_items.txt") or txt_file.name == "all_vocab_dump.json":
+            continue
         lesson_code, lesson_topic, entries = parse_lesson_file(txt_file)
         lesson_audio_dir = audio_dir / lesson_code
+        lesson_slow_audio_dir = (slow_audio_dir / lesson_code) if slow_audio_dir else None
         lesson_label = format_lesson_label(lesson_code)
 
         # Full hierarchical deck name
@@ -505,32 +666,92 @@ def export_decks(vocab_dir: Path, audio_dir: Path, output_dir: Path,
             raw_pinyin = entry["raw_pinyin"]
             german = entry["german"]
 
-            # Locate WAV file
-            # Format: <lesson_code>_<line_idx:03d>_<hanzi>.wav
-            wav_filename = f"{lesson_code}_{line_idx:03d}_{hanzi}.wav"
-            wav_path = lesson_audio_dir / wav_filename
+            # Locate Normal Audio (1.0x)
+            norm_wav_filename = f"v3_norm_{lesson_code}_{line_idx:03d}_{hanzi}.wav"
+            norm_wav_path = lesson_audio_dir / norm_wav_filename
+            if not norm_wav_path.exists():
+                fallback_norm = lesson_audio_dir / f"{lesson_code}_{line_idx:03d}_{hanzi}.wav"
+                if fallback_norm.exists():
+                    norm_wav_path = fallback_norm
+                    norm_wav_filename = fallback_norm.name
+                else:
+                    candidates = list(lesson_audio_dir.glob(f"*{line_idx:03d}*.wav"))
+                    if candidates:
+                        norm_wav_path = candidates[0]
+                        norm_wav_filename = candidates[0].name
+                    else:
+                        norm_wav_path = None
 
-            if not wav_path.exists():
-                # Try finding any file matching line_idx
-                candidates = list(lesson_audio_dir.glob(f"{lesson_code}_{line_idx:03d}_*.wav"))
-                if candidates:
-                    wav_path = candidates[0]
-                    wav_filename = wav_path.name
+            # Locate Slow Audio (0.65x)
+            slow_wav_filename = f"v3_slow_{lesson_code}_{line_idx:03d}_{hanzi}.wav"
+            slow_wav_path = (lesson_slow_audio_dir / slow_wav_filename) if lesson_slow_audio_dir else None
+            if slow_wav_path and not slow_wav_path.exists():
+                fallback_slow = lesson_slow_audio_dir / f"{lesson_code}_{line_idx:03d}_{hanzi}.wav"
+                if fallback_slow.exists():
+                    slow_wav_path = fallback_slow
+                    slow_wav_filename = fallback_slow.name
+                else:
+                    candidates = list(lesson_slow_audio_dir.glob(f"*{line_idx:03d}*.wav"))
+                    if candidates:
+                        slow_wav_path = candidates[0]
+                        slow_wav_filename = candidates[0].name
+                    else:
+                        slow_wav_path = None
 
-            if not wav_path.exists():
-                print(f"  WARNING: Missing audio file for {lesson_code} line {line_idx} ({hanzi}): {wav_path}")
-                audio_tag = ""
-            else:
-                audio_tag = f"[sound:{wav_filename}]"
-                lesson_media_files.append(str(wav_path.resolve()))
-                all_media_files.append(str(wav_path.resolve()))
+            # Construct Audio field
+            audio_tag = ""
+            if norm_wav_path and norm_wav_path.exists():
+                lesson_media_files.append(str(norm_wav_path.resolve()))
+                all_media_files.append(str(norm_wav_path.resolve()))
                 matched_entries += 1
+
+                if slow_wav_path and slow_wav_path.exists():
+                    lesson_media_files.append(str(slow_wav_path.resolve()))
+                    all_media_files.append(str(slow_wav_path.resolve()))
+                    audio_tag = (
+                        f'<div class="audio-row">'
+                        f'<span class="audio-badge">🐇 1.0x</span>[sound:{norm_wav_filename}] '
+                        f'<span class="audio-badge slow">🐢 0.65x</span>[sound:{slow_wav_filename}]'
+                        f'</div>'
+                    )
+                else:
+                    audio_tag = f"[sound:{norm_wav_filename}]"
+            elif slow_wav_path and slow_wav_path.exists():
+                lesson_media_files.append(str(slow_wav_path.resolve()))
+                all_media_files.append(str(slow_wav_path.resolve()))
+                audio_tag = f"[sound:{slow_wav_filename}]"
+            else:
+                print(f"  WARNING: Missing audio file for {lesson_code} line {line_idx} ({hanzi})")
+
+            # Locate Example Sentence and Audio
+            german_field = german
+            ex_key = (lesson_code, line_idx, hanzi)
+            if ex_key in examples_by_key:
+                ex = examples_by_key[ex_key]
+                ex_audio_file = ex.get("audio_filename", "")
+                ex_audio_path = (examples_audio_dir / ex_audio_file) if examples_audio_dir else None
+                ex_audio_tag = ""
+                if ex_audio_path and ex_audio_path.exists():
+                    lesson_media_files.append(str(ex_audio_path.resolve()))
+                    all_media_files.append(str(ex_audio_path.resolve()))
+                    ex_audio_tag = f'<div class="example-audio"><span class="audio-badge ex">💬 Satz</span>[sound:{ex_audio_file}]</div>'
+
+                german_field = (
+                    f'<div class="meaning-display">{german}</div>\n'
+                    f'<div class="example-box">\n'
+                    f'  <div class="example-title">💡 Beispielsatz</div>\n'
+                    f'  <div class="example-hanzi">{ex["sentence_hanzi"]}</div>\n'
+                    f'  <div class="example-pinyin">{ex["sentence_pinyin"]}</div>\n'
+                    f'  <div class="example-trans">{ex["sentence_translation_de"]}</div>\n'
+                    f'  {ex_audio_tag}\n'
+                    f'</div>'
+                )
 
             aligned = slice_raw_pinyin(hanzi, raw_pinyin)
             colored_pinyin = build_colored_pinyin_html(aligned)
             ruby_html = build_ruby_html(aligned)
 
-            # Deterministic note GUID
+            # Deterministic note GUID (100% stable across runs)
             note_guid = genanki.guid_for(lesson_code, str(line_idx), hanzi)
 
             note = genanki.Note(
@@ -540,14 +761,14 @@ def export_decks(vocab_dir: Path, audio_dir: Path, output_dir: Path,
                     ruby_html,
                     raw_pinyin,
                     colored_pinyin,
-                    german,
+                    german_field,
                     audio_tag,
                     lesson_label,
                     lesson_topic,
                     f"{item_num:03d}",
                 ],
                 guid=note_guid,
-                tags=[f"Lektion_{lesson_code}", "Voice_ML", "Biaobei_v2ProPlus"]
+                tags=[f"Lektion_{lesson_code}", "Voice_ML", "v3_DualAudio"]
             )
             subdeck.add_note(note)
 
@@ -566,7 +787,6 @@ def export_decks(vocab_dir: Path, audio_dir: Path, output_dir: Path,
     # 1. Export Master Package with all subdecks
     master_package_path = output_dir / "Chinesisch_Vokabeln_Alle_Lektionen.apkg"
     print(f"\nBuilding Master Anki Deck: {master_package_path.name}...")
-    # Unique media files list
     unique_media = sorted(list(set(all_media_files)))
     master_pkg = genanki.Package(subdecks)
     master_pkg.media_files = unique_media
@@ -592,7 +812,6 @@ def export_decks(vocab_dir: Path, audio_dir: Path, output_dir: Path,
                 deck_id=get_deterministic_id(f"ind_{stat['code']}"),
                 name=f"{master_deck_name}::{stat['lesson']} - {stat['topic']}"
             )
-            # Transfer notes
             for note in stat["deck"].notes:
                 ind_deck.add_note(note)
 
@@ -628,7 +847,27 @@ def main():
     parser.add_argument(
         "--audio-dir",
         default="output_v2/vocab",
-        help="Directory containing refined audio .wav files (default: output_v2/vocab)"
+        help="Directory containing 1.0x audio .wav files (default: output_v2/vocab)"
+    )
+    parser.add_argument(
+        "--slow-audio-dir",
+        default="output_v2_slow/vocab",
+        help="Directory containing 0.65x slow audio .wav files (default: output_v2_slow/vocab)"
+    )
+    parser.add_argument(
+        "--examples-manifest",
+        default="data/vocab/vocab_example_sentences.json",
+        help="Path to vocab_example_sentences.json (default: data/vocab/vocab_example_sentences.json)"
+    )
+    parser.add_argument(
+        "--examples-audio-dir",
+        default="output_v2/examples",
+        help="Directory containing example audio .wav files (default: output_v2/examples)"
+    )
+    parser.add_argument(
+        "--backup-dir",
+        default="backups",
+        help="Directory to store automatic .apkg backups (default: backups)"
     )
     parser.add_argument(
         "--output-dir",
@@ -659,9 +898,14 @@ def main():
         output_dir=Path(args.output_dir),
         master_deck_name=args.deck_name,
         cards_mode=args.cards_mode,
-        export_individual=not args.no_individual
+        export_individual=not args.no_individual,
+        slow_audio_dir=Path(args.slow_audio_dir) if args.slow_audio_dir else None,
+        examples_manifest_path=Path(args.examples_manifest) if args.examples_manifest else None,
+        examples_audio_dir=Path(args.examples_audio_dir) if args.examples_audio_dir else None,
+        backup_dir=Path(args.backup_dir) if args.backup_dir else None
     )
 
 
 if __name__ == "__main__":
     main()
+
