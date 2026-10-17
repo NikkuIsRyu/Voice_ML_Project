@@ -26,6 +26,7 @@ output_v2/
 output_v2_slow/
 output_v3/
 data/train_v3/
+data/aishell3_meta/
 backups/
 *.apkg
 *.colpkg

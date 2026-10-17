@@ -1,0 +1,36 @@
+# Voice profiles registry for Voice-ML v3 Multi-Speaker Pipeline
+default_voice: female_v3
+
+voices:
+  female_v3:
+    name: "Female Studio Voice (CSMSC Refined v3)"
+    gender: "female"
+    version: "v2ProPlus"
+    sovits_weights: "SoVITS_weights_v2ProPlus/female_v3_e10_s6170.pth"
+    gpt_weights: "GPT_weights_v2ProPlus/female_v3-e10.ckpt"
+    ref_audio: "data/train_v3/csmsc/csmsc_ref.wav"
+    prompt_text: "帛书，化为，袅袅青烟，飘向，九天重霄，告慰，始祖先灵。"
+    prompt_lang: "zh"
+    target_lang: "zh"
+
+  male_v1:
+    name: "Male Studio Voice (AISHELL-3 Fine-Tuned v1)"
+    gender: "male"
+    version: "v2ProPlus"
+    sovits_weights: "SoVITS_weights_v2ProPlus/male_v1_e12_s4452.pth"
+    gpt_weights: "GPT_weights_v2ProPlus/male_v1-e12.ckpt"
+    ref_audio: "data/train_v3/aishell3_male/male_v1_ref.wav"
+    prompt_text: "希望有更多优秀队员上来充实中国游泳的实力。"
+    prompt_lang: "zh"
+    target_lang: "zh"
+
+  male_zs:
+    name: "Secondary Male Zero-Shot Voice (SSB1630 Deep)"
+    gender: "male"
+    version: "v2ProPlus"
+    sovits_weights: "SoVITS_weights_v2ProPlus/female_v3_e10_s6170.pth"
+    gpt_weights: "GPT_weights_v2ProPlus/female_v3-e10.ckpt"
+    ref_audio: "data/refs/male_zs/male_zs_ref.wav"
+    prompt_text: "假如三星想要夺回智能手机的领导权。"
+    prompt_lang: "zh"
+    target_lang: "zh"
