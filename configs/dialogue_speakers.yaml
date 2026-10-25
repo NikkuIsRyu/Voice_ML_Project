@@ -32,6 +32,36 @@ dialogues:
     A: female_v3
     B: male_v1
 
+  Dialogue5_1:
+    A: female_v3
+    B: male_v1
+    C: male_zs
+
+  Dialogue5_2:
+    A: female_v3
+    B: male_v1
+    C: male_zs
+
+  Dialogue6_1:
+    A: female_v3
+    B: male_v1
+    C: male_zs
+
+  Dialogue6_2:
+    A: female_v3
+    B: male_v1
+    C: male_zs
+
+  Dialogue7_1:
+    A: female_v3
+    B: male_v1
+    C: male_zs
+
+  Dialogue7_2:
+    A: female_v3
+    B: male_v1
+    C: male_zs
+
   example_dialogue:
     alternate:
       - female_v3
