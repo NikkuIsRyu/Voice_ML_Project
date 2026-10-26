@@ -1,68 +1,76 @@
-# Dialogue Speaker Mapping Configuration
-# Maps dialogue IDs and speakers to configured voice profiles (female_v3, male_v1, male_zs)
-
 default_mapping:
   A: female_v4
   B: male_v1
   C: male_zs
-
 dialogues:
   Dialogue2_1:
     A: female_v4
     B: male_v1
     C: male_zs
-
   Dialogue2_2:
     A: female_v4
     B: male_v1
-
   Dialogue3_1:
     A: female_v4
     B: male_v1
-
   Dialogue3_2:
     A: female_v4
     B: male_v1
-
   Dialogue4_1:
     A: female_v4
     B: male_v1
-
   Dialogue4_2:
     A: female_v4
     B: male_v1
-
   Dialogue5_1:
     A: female_v4
     B: male_v1
     C: male_zs
-
   Dialogue5_2:
     A: female_v4
     B: male_v1
     C: male_zs
-
   Dialogue6_1:
     A: female_v4
     B: male_v1
     C: male_zs
-
   Dialogue6_2:
     A: female_v4
     B: male_v1
     C: male_zs
-
   Dialogue7_1:
     A: female_v4
     B: male_v1
     C: male_zs
-
   Dialogue7_2:
     A: female_v4
     B: male_v1
     C: male_zs
-
   example_dialogue:
     alternate:
-      - female_v3
-      - male_v1
+    - female_v3
+    - male_v1
+  Dialogue8_1:
+    A: female_v4
+    B: male_v1
+    C: male_zs
+  Dialogue8_2:
+    A: female_v4
+    B: male_v1
+    C: male_zs
+  Dialogue9_1:
+    A: female_v4
+    B: male_v1
+    C: male_zs
+  Dialogue9_2:
+    A: female_v4
+    B: male_v1
+    C: male_zs
+  Dialogue10_1:
+    A: female_v4
+    B: male_v1
+    C: male_zs
+  Dialogue10_2:
+    A: female_v4
+    B: male_v1
+    C: male_zs

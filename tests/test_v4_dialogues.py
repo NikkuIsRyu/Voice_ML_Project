@@ -18,7 +18,10 @@ ALL_V4_DIALOGUES = [
     "Dialogue4_1", "Dialogue4_2",
     "Dialogue5_1", "Dialogue5_2",
     "Dialogue6_1", "Dialogue6_2",
-    "Dialogue7_1", "Dialogue7_2"
+    "Dialogue7_1", "Dialogue7_2",
+    "Dialogue8_1", "Dialogue8_2",
+    "Dialogue9_1", "Dialogue9_2",
+    "Dialogue10_1", "Dialogue10_2"
 ]
 
 @pytest.fixture(scope="module")

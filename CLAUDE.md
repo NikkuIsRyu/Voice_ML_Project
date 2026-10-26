@@ -47,6 +47,13 @@ Executed Phase 0 through Phase 7 strictly following Claude's architecture plan:
 - **`v4-dialogues-audio`:** Synthesized all 12 dialogues (Lessons 2–7) in standard 1.0x and slow 0.75x with ms alignment timestamps. Activated `female_v4` in `configs/dialogue_speakers.yaml`.
 - **`v4-complete`:** All 50 unit tests passing. Anki deck untouched per user directive.
 
+### Milestone E: Drive Prepared Materials & Curriculum Expansion (Lessons 5–10) (Conv: `deedd389`)
+- **Ingested Prepared Materials:** Processed Google Drive materials from `Chinese-Materials-prepared` (`nikku_lektion_05_umgeschrieben.md` through `nikku_lektion_10_umgeschrieben.md`).
+- **Curriculum Expansion (Lessons 8–10):** Added Dialogues 8.1, 8.2, 9.1, 9.2, 10.1, 10.2 and synchronized official rewritten texts for Dialogues 5.1–7.2 (88 turns total across 12 dialogues).
+- **Multi-Speaker Audio Generation:** Synthesized all 12 dialogues at standard (1.0x) and slow learning (0.75x) speeds with `female_v4`, `male_v1`, and `male_zs` in `output_v2/dialogues` and `output_v2_slow/dialogues` with ms JSON timestamps.
+- **Dual-Audio Vocabulary (Lessons 7–10):** Extracted 215 clean vocabulary words; synthesized 1.0x and 0.65x dual audio using `female_v4` with both standard and `v3_norm_` / `v3_slow_` naming formats.
+- **Verification:** All 62 unit tests passing (100% green). Baseline 345 cards preserved with deterministic GUIDs, 0 collisions across 560 total cards.
+
 ---
 
 ## 3. Git Release Tags

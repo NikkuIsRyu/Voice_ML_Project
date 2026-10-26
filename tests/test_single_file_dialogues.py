@@ -14,7 +14,8 @@ DIA_SLOW_DIR = PROJECT_ROOT / "output_v2_slow" / "dialogues"
 
 EXPECTED_DIALOGUES = [
     "Dialogue2_1", "Dialogue2_2", "Dialogue3_1", "Dialogue3_2", "Dialogue4_1", "Dialogue4_2",
-    "Dialogue5_1", "Dialogue5_2", "Dialogue6_1", "Dialogue6_2", "Dialogue7_1", "Dialogue7_2"
+    "Dialogue5_1", "Dialogue5_2", "Dialogue6_1", "Dialogue6_2", "Dialogue7_1", "Dialogue7_2",
+    "Dialogue8_1", "Dialogue8_2", "Dialogue9_1", "Dialogue9_2", "Dialogue10_1", "Dialogue10_2"
 ]
 
 class TestSingleFileDialogues:

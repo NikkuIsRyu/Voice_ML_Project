@@ -52,12 +52,14 @@ def test_model_id_and_field_schema_preservation():
 
 
 def test_deterministic_guid_preservation_for_all_vocab():
-    """Verify that every single one of the 345 vocabulary words has a deterministic GUID."""
+    """Verify that original 345 vocabulary words and new expanded lessons have deterministic GUIDs without collision."""
     vocab_dir = PROJECT_ROOT / "data" / "vocab"
     txt_files = sorted(vocab_dir.glob("*.txt"))
 
     all_guids = set()
     total_notes = 0
+    v3_notes = 0
+    v3_lessons = {"example_lesson", "lesson01", "lesson03", "lesson04", "lesson05", "lesson06"}
 
     for txt_file in txt_files:
         if txt_file.name.endswith("_items.txt") or txt_file.name == "all_vocab_dump.json":
@@ -76,6 +78,9 @@ def test_deterministic_guid_preservation_for_all_vocab():
 
             all_guids.add(guid)
             total_notes += 1
+            if lesson_code in v3_lessons:
+                v3_notes += 1
 
-    assert total_notes == 345, f"Expected 345 notes, found {total_notes}"
-    assert len(all_guids) == 345, f"Duplicate GUID detected! {len(all_guids)} vs 345"
+    assert v3_notes == 345, f"Expected 345 v3 baseline notes, found {v3_notes}"
+    assert total_notes == 560, f"Expected 560 total notes (345 v3 + 215 new), found {total_notes}"
+    assert len(all_guids) == total_notes, f"Duplicate GUID detected! {len(all_guids)} vs {total_notes}"

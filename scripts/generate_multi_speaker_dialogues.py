@@ -276,6 +276,7 @@ def main():
     parser.add_argument("--output_dir", default="output_v2/dialogues", help="Output directory for full dialogues")
     parser.add_argument("--speed", type=float, default=1.0, help="Speech speed multiplier (default: 1.0)")
     parser.add_argument("--generate_slow", action="store_true", help="Also generate 0.75x slow learning dialogue in output_v2_slow")
+    parser.add_argument("--dialogues", nargs="+", help="Specific dialogue IDs to synthesize (e.g. Dialogue5_1 Dialogue5_2 ...)")
     args = parser.parse_args()
 
     dia_dir = (PROJECT_ROOT / args.dialogues_dir).resolve()
@@ -291,6 +292,8 @@ def main():
 
     # 2. Parse all dialogues and collect turns
     dialogue_files = sorted(dia_dir.glob("Dialogue*.txt"))
+    if args.dialogues:
+        dialogue_files = [df for df in dialogue_files if df.stem in args.dialogues]
     all_turns = []
     turns_by_dialogue = {}
 
