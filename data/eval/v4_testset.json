@@ -1,0 +1,86 @@
+[
+  {
+    "id": "eval_01_greeting",
+    "category": "short_greeting",
+    "text": "你好，今天过得开心吗？",
+    "pinyin": "nǐ hǎo, jīn tiān guò de kāi xīn ma?",
+    "description": "Short greeting with tone 3 sandhi and modal particle"
+  },
+  {
+    "id": "eval_02_direction",
+    "category": "short_question",
+    "text": "请问，附近的地铁站在哪儿？",
+    "pinyin": "qǐng wèn, fù jìn de dì tiě zhàn zài nǎr?",
+    "description": "Polite question asking for direction and location"
+  },
+  {
+    "id": "eval_03_appointment",
+    "category": "medium_meeting",
+    "text": "我们明天上午十点半在图书馆门口见面吧。",
+    "pinyin": "wǒ men míng tiān shàng wǔ shí diǎn bàn zài tú shū guǎn mén kǒu jiàn miàn ba.",
+    "description": "Time, location, and suggestive particle"
+  },
+  {
+    "id": "eval_04_digits",
+    "category": "numbers_phone",
+    "text": "我的手机号码是一三八零零一三八零零零，欢迎随时联系。",
+    "pinyin": "wǒ de shǒu jī hào mǎ shì yī sān bā líng líng yī sān bā líng líng líng, huān yíng suí shí lián xì.",
+    "description": "Rapid serial digit pronunciation and phone contact"
+  },
+  {
+    "id": "eval_05_weather",
+    "category": "numbers_weather",
+    "text": "今天下午气温大概是二十五度，天气非常舒适晴朗。",
+    "pinyin": "jīn tiān xià wǔ qì wēn dà gài shì èr shí wǔ dù, tiān qì fēi cháng shū shì qíng lǎng.",
+    "description": "Degree numbers, temperature, and pleasant weather description"
+  },
+  {
+    "id": "eval_06_travel",
+    "category": "choice_question",
+    "text": "你打算今年秋天去南方旅游，还是留在北方工作？",
+    "pinyin": "nǐ dǎ suan jīn nián qiū tiān qù nán fāng lǚ yóu, hái shì liú zài běi fāng gōng zuò?",
+    "description": "HSK2 alternative question with haishi and seasonal travel vocabulary"
+  },
+  {
+    "id": "eval_07_ba_sentence",
+    "category": "medium_grammar",
+    "text": "李经理把刚才讨论的会议纪要发到了大家的工作群里。",
+    "pinyin": "lǐ jīng lǐ bǎ gāng cái tǎo lùn de huì yì jì yào fā dào le dà jiā de gōng zuò qún lǐ.",
+    "description": "Ba-construction disposal grammar and office context"
+  },
+  {
+    "id": "eval_08_sandhi_3",
+    "category": "tone3_sandhi_cluster",
+    "text": "老李想买两把好看的雨伞，可以陪小吕一起去展览馆选购。",
+    "pinyin": "lǎo lǐ xiǎng mǎi liǎng bǎ hǎo kàn de yǔ sǎn, kě yǐ péi xiǎo lǚ yì qǐ qù zhǎn lǎn guǎn xuǎn gòu.",
+    "description": "Dense clusters of third tones testing continuous tone sandhi inflection"
+  },
+  {
+    "id": "eval_09_concession",
+    "category": "long_concession",
+    "text": "虽然这个新项目的技术方案很有挑战性，但是大家依然充满信心并全力以赴。",
+    "pinyin": "suī rán zhè ge xīn xiàng mù de jì shù fāng àn hěn yǒu tiǎo zhàn xìng, dàn shì dà jiā yī rán chōng mǎn xìn xīn bìng quán lì yǐ fù.",
+    "description": "Complex clause connector suiran...danshi with abstract professional expression"
+  },
+  {
+    "id": "eval_10_business",
+    "category": "long_business",
+    "text": "在跨国商务交流当中，准确理解对方的文化背景能够避免很多不必要的误会。",
+    "pinyin": "zài kuà guó shāng wù jiāo liú dāng zhōng, zhǔn què lǐ jiě duì fāng de wén huà bèi jǐng néng gòu bì miǎn hěn duō bú bì yào de wù huì.",
+    "description": "Formal business diplomacy topic with multi-syllable polysyllabic words"
+  },
+  {
+    "id": "eval_11_cuisine",
+    "category": "long_compound",
+    "text": "这道特色菜既保留了传统风味，又融合了创新的烹饪工艺，味道确实不同凡响。",
+    "pinyin": "zhè dào tè sè cài jì bǎo liú le chuán tǒng fēng wèi, yòu róng hé le chuàng xīn de pēng rèn gōng yì, wèi dao què shí bù tóng fán xiǎng.",
+    "description": "Compound sentence with culinary and sensory descriptions"
+  },
+  {
+    "id": "eval_12_speech",
+    "category": "long_purpose",
+    "text": "为了准备下周的中文演讲比赛，他每天早晨都在公园里大声朗读课文。",
+    "pinyin": "wèi le zhǔn bèi xià zhōu de zhōng wén yǎn jiǎng bǐ sài, tā měi tiān zǎo chen dōu zài gōng yuán lǐ dà shēng lǎng dú kè wén.",
+    "description": "Educational context with purpose structure and speech practice"
+  }
+]

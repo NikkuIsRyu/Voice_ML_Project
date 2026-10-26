@@ -202,15 +202,16 @@ def main():
     parser.add_argument("--gpt_epochs", type=int, default=12, help="Epochs for GPT")
     parser.add_argument("--sovits_batch_size", type=int, default=6, help="Batch size for SoVITS")
     parser.add_argument("--gpt_batch_size", type=int, default=4, help="Batch size for GPT")
+    parser.add_argument("--save_every", type=int, default=2, help="Checkpoint saving interval in epochs")
     parser.add_argument("--skip_sovits", action="store_true", help="Skip SoVITS training")
     parser.add_argument("--skip_gpt", action="store_true", help="Skip GPT training")
     parser.add_argument("--no_auto_activate", action="store_true", help="Do not update tts_infer.yaml immediately")
     args = parser.parse_args()
 
     if not args.skip_sovits:
-        train_sovits(exp_name=args.exp_name, epochs=args.sovits_epochs, batch_size=args.sovits_batch_size, save_every=2)
+        train_sovits(exp_name=args.exp_name, epochs=args.sovits_epochs, batch_size=args.sovits_batch_size, save_every=args.save_every)
     if not args.skip_gpt:
-        train_gpt(exp_name=args.exp_name, epochs=args.gpt_epochs, batch_size=args.gpt_batch_size, save_every=2)
+        train_gpt(exp_name=args.exp_name, epochs=args.gpt_epochs, batch_size=args.gpt_batch_size, save_every=args.save_every)
 
     if not args.no_auto_activate:
         update_infer_config(exp_name=args.exp_name)

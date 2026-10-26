@@ -13,6 +13,17 @@ voices:
     prompt_lang: "zh"
     target_lang: "zh"
 
+  female_v4:
+    name: "Female Studio Voice (CSMSC Expanded 7.5h v4)"
+    gender: "female"
+    version: "v2ProPlus"
+    sovits_weights: "SoVITS_weights_v2ProPlus/female_v4_e10_s11810.pth"
+    gpt_weights: "GPT_weights_v2ProPlus/female_v4-e12.ckpt"
+    ref_audio: "data/train_v4/csmsc/csmsc_ref.wav"
+    prompt_text: "潘基文强调说，：“人口的增长，使缺水情况，日益恶化，气候变化，也是如此。"
+    prompt_lang: "zh"
+    target_lang: "zh"
+
   male_v1:
     name: "Male Studio Voice (AISHELL-3 Fine-Tuned v1)"
     gender: "male"
