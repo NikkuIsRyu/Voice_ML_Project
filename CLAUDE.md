@@ -40,10 +40,17 @@ Executed Phase 0 through Phase 7 strictly following Claude's architecture plan:
 - **`v3-anki-dual` (Phase 4):** [`scripts/export_anki_deck.py`](file:///d:/.D%20Dokuments/Uni%20Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_ML_Project/scripts/export_anki_deck.py) embeds dual audio (1.0x standard + 0.65x slow) and example sentences. Uses `--preserve-model` with deterministic `note_guid` to preserve 100% of existing user learning progress; auto-generates `.colpkg` backups.
 - **`v3-complete` (Phase 7):** Release tag created. All 18 unit tests passing.
 
+### Milestone D: Voice-ML Upgrade v4 Voices & Dialogues (Conv: `d943cf12`)
+- **`v4-dialogues-text`:** Rewrote Lessons 2–4 dialogues (0% textbook overlap) + added Lessons 5–7 (108 turns total).
+- **`v4-female`:** Expanded CSMSC corpus to 7.50h (7,081 clips), trained SoVITS (10 ep, 11,810 steps) & GPT (12 ep) with curated reference prompt `csmsc_ref.wav`. Whisper large-v3 CER: 5.70% (0 outliers).
+- **`v4-male` & `v4-male-b`:** Data inventory showed < 20 min unused corpus for SSB0817; existing high-quality `male_v1` and zero-shot `male_zs` preserved to protect voice quality.
+- **`v4-dialogues-audio`:** Synthesized all 12 dialogues (Lessons 2–7) in standard 1.0x and slow 0.75x with ms alignment timestamps. Activated `female_v4` in `configs/dialogue_speakers.yaml`.
+- **`v4-complete`:** All 50 unit tests passing. Anki deck untouched per user directive.
+
 ---
 
 ## 3. Git Release Tags
-- `pre-v3` $\rightarrow$ `v3-vad` $\rightarrow$ `v3-female` $\rightarrow$ `v3-male` $\rightarrow$ `v3-dialogues` $\rightarrow$ `v3-examples` $\rightarrow$ `v3-anki-dual` $\rightarrow$ `v3-complete`
+- `pre-v3` $\rightarrow$ `v3-vad` $\rightarrow$ `v3-female` $\rightarrow$ `v3-male` $\rightarrow$ `v3-dialogues` $\rightarrow$ `v3-examples` $\rightarrow$ `v3-anki-dual` $\rightarrow$ `v3-complete` $\rightarrow$ `pre-v4` $\rightarrow$ `v4-dialogues-text` $\rightarrow$ `v4-male` $\rightarrow$ `v4-male-b` $\rightarrow$ `v4-female` $\rightarrow$ `v4-complete`
 
 ---
 
@@ -55,7 +62,10 @@ Executed Phase 0 through Phase 7 strictly following Claude's architecture plan:
 | **AI Teacher** | `tutor/backend/talk/ws.py`, `teacher_prompt.py` | WebSocket turns, pedagogical prompt |
 | **Dialogues** | `scripts/generate_multi_speaker_dialogues.py` | Multi-speaker room-tone stitched audio |
 | **Anki Export** | `scripts/export_anki_deck.py` | Dual-audio SRS exporter (`--preserve-model`) |
-| **Voice Config**| `configs/voice_profiles.yaml`, `dialogue_speakers.yaml` | Voice mapping (female_v3, male_v1, male_zs) |
+| **Voice Config**| `configs/voice_profiles.yaml`, `dialogue_speakers.yaml` | Voice mapping (female_v4, female_v3, male_v1, male_zs) |
+
+> **Rollback Instruction (Voice Profile):**
+> To revert speaker A to v3, set `A: female_v3` in [`configs/dialogue_speakers.yaml`](file:///d:/.D%20Dokuments/Uni%20Stuff/Meine_Bibliothek/Code_Projects/Voice_ML/Voice_ML_Project/configs/dialogue_speakers.yaml).
 
 ---
 

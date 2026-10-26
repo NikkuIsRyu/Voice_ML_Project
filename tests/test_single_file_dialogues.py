@@ -13,7 +13,8 @@ DIA_DIR = PROJECT_ROOT / "output_v2" / "dialogues"
 DIA_SLOW_DIR = PROJECT_ROOT / "output_v2_slow" / "dialogues"
 
 EXPECTED_DIALOGUES = [
-    "Dialogue2_1", "Dialogue2_2", "Dialogue3_1", "Dialogue3_2", "Dialogue4_1", "Dialogue4_2"
+    "Dialogue2_1", "Dialogue2_2", "Dialogue3_1", "Dialogue3_2", "Dialogue4_1", "Dialogue4_2",
+    "Dialogue5_1", "Dialogue5_2", "Dialogue6_1", "Dialogue6_2", "Dialogue7_1", "Dialogue7_2"
 ]
 
 class TestSingleFileDialogues:
@@ -48,7 +49,7 @@ class TestSingleFileDialogues:
             assert turn["start_ms"] >= prev_end
             assert turn["end_ms"] > turn["start_ms"]
             assert len(turn["text"]) > 0
-            assert turn["voice"] in ["female_v3", "male_v1", "male_zs"]
+            assert turn["voice"] in ["female_v3", "female_v4", "male_v1", "male_zs"]
             prev_end = turn["end_ms"]
 
     def test_slow_dialogue_exists(self):
